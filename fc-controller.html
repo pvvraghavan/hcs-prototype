@@ -3,491 +3,314 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FC Controller</title>
+<title>FC Controller — HCS Study</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: rgba(255,255,255,0.07);
+    --text: #e8e8f0;
+    --muted: rgba(255,255,255,0.35);
+    --amber: #F59E0B;
+    --red: #DC2626;
+    --blue: #007AFF;
+    --green: #34C759;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Syne', sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
   body {
-    background: #0a0a0a;
-    color: #fff;
-    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    overflow: hidden;
+    padding-bottom: 60px;
   }
-
-  .grid-bg {
-    position: fixed;
-    inset: 0;
-    background-image: 
-      linear-gradient(rgba(245, 158, 11, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(245, 158, 11, 0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
+  body::before {
+    content:''; position:fixed; inset:0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events:none; z-index:0;
   }
+  .wrap { position:relative; z-index:1; max-width:720px; margin:0 auto; padding:32px 24px; }
 
-  .header {
-    text-align: center;
-    margin-bottom: 48px;
-    position: relative;
-    z-index: 1;
+  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:32px; }
+  .logo-dot { width:10px; height:10px; border-radius:50%; background:var(--amber); box-shadow:0 0 12px var(--amber); }
+  .header-left { display:flex; align-items:center; gap:14px; }
+  .header-title { font-family:var(--display); font-size:20px; font-weight:800; letter-spacing:-0.5px; }
+  .header-sub { font-size:11px; color:var(--muted); margin-top:2px; }
+  .tag { font-size:11px; color:var(--muted); border:1px solid var(--border); border-radius:6px; padding:4px 10px; letter-spacing:0.5px; }
+
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; margin-bottom:20px; }
+  .card.locked { opacity:0.4; pointer-events:none; transition:opacity 0.3s; }
+  .card.unlocked { opacity:1; pointer-events:all; }
+
+  .section-label {
+    font-size:10px; letter-spacing:2px; color:var(--muted); text-transform:uppercase;
+    margin-bottom:16px; display:flex; align-items:center; gap:8px;
   }
+  .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
 
-  .badge {
-    display: inline-block;
-    background: rgba(245, 158, 11, 0.15);
-    border: 1px solid rgba(245, 158, 11, 0.4);
-    color: #F59E0B;
-    font-size: 10px;
-    letter-spacing: 3px;
-    padding: 6px 16px;
-    border-radius: 2px;
-    margin-bottom: 16px;
-    text-transform: uppercase;
+  .join-row { display:flex; gap:10px; }
+  .code-input {
+    flex:1; background:rgba(255,255,255,0.04); border:1px solid var(--border);
+    border-radius:10px; padding:12px 16px; color:var(--text);
+    font-family:var(--mono); font-size:22px; font-weight:700;
+    letter-spacing:6px; text-transform:uppercase; outline:none; transition:border-color 0.2s;
   }
+  .code-input:focus { border-color:var(--amber); }
+  .code-input::placeholder { color:var(--muted); font-weight:400; letter-spacing:1px; font-size:14px; }
 
-  h1 {
-    font-size: 22px;
-    font-weight: 700;
-    color: #fff;
-    letter-spacing: -0.5px;
+  .btn { padding:12px 20px; border-radius:10px; border:none; font-family:var(--mono); font-size:13px; font-weight:700; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
+  .btn:active { transform:scale(0.97); }
+  .btn-amber { background:var(--amber); color:#000; }
+  .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
+  .btn-ghost { background:rgba(255,255,255,0.06); color:var(--text); border:1px solid var(--border); }
+
+  .conn-status { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin-top:12px; }
+  .conn-dot { width:8px; height:8px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+  .conn-dot.live { background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .mech-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .mech-card {
+    background:rgba(255,255,255,0.03); border:1px solid var(--border);
+    border-radius:12px; padding:18px 12px; text-align:center;
+    cursor:pointer; transition:all 0.2s;
   }
+  .mech-card:hover { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.15); }
+  .mech-card.selected { border-color:var(--amber); background:rgba(245,158,11,0.1); }
+  .mech-icon { font-size:28px; display:block; margin-bottom:8px; }
+  .mech-name { font-family:var(--display); font-size:14px; font-weight:700; }
+  .mech-desc { font-size:10px; color:var(--muted); margin-top:3px; }
 
-  h1 span { color: #F59E0B; }
+  .trigger-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .big-btn {
+    flex:1; min-width:130px; padding:16px 20px; border-radius:12px; border:none;
+    font-family:var(--display); font-size:16px; font-weight:800;
+    cursor:pointer; transition:all 0.15s; display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .big-btn:active { transform:scale(0.97); }
+  .big-btn:disabled { opacity:0.3; pointer-events:none; }
+  .big-btn.activate { background:var(--amber); color:#000; }
+  .big-btn.deactivate { background:var(--red); color:#fff; }
+
+  .timer { font-size:32px; font-weight:700; color:var(--amber); min-width:72px; text-align:center; font-variant-numeric:tabular-nums; }
+  .timer.warn { color:var(--red); animation:tblink 0.5s ease-in-out infinite; }
+  @keyframes tblink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .m3-row { display:none; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .m3-row.show { display:flex; }
+
+  .log-box { font-size:12px; color:var(--muted); max-height:160px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
+  .log-entry { display:flex; gap:10px; }
+  .log-ts { color:rgba(255,255,255,0.2); flex-shrink:0; }
+  .log-msg.activated { color:var(--amber); }
+  .log-msg.deactivated { color:var(--red); }
+  .log-msg.connected { color:var(--green); }
 
   .status-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 12px;
-    font-size: 11px;
-    color: #555;
+    position:fixed; bottom:0; left:0; right:0;
+    background:rgba(10,10,15,0.95); backdrop-filter:blur(10px);
+    border-top:1px solid var(--border);
+    padding:10px 24px; display:flex; align-items:center; justify-content:space-between;
+    font-size:11px; color:var(--muted); z-index:100;
   }
-
-  .status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #555;
-    transition: all 0.3s;
-  }
-
-  .status-dot.connected { background: #34C759; box-shadow: 0 0 8px #34C759; }
-  .status-dot.waiting { 
-    background: #F59E0B; 
-    animation: pulse-dot 1s infinite;
-  }
-
-  @keyframes pulse-dot {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
-
-  .room-section {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px;
-    padding: 24px;
-    width: 100%;
-    max-width: 360px;
-    margin-bottom: 24px;
-    position: relative;
-    z-index: 1;
-  }
-
-  .room-label {
-    font-size: 10px;
-    letter-spacing: 2px;
-    color: #555;
-    text-transform: uppercase;
-    margin-bottom: 12px;
-  }
-
-  .room-input-row {
-    display: flex;
-    gap: 8px;
-  }
-
-  input {
-    flex: 1;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 8px;
-    padding: 12px 16px;
-    color: #fff;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 16px;
-    letter-spacing: 4px;
-    outline: none;
-    transition: border-color 0.2s;
-    text-transform: uppercase;
-  }
-
-  input:focus { border-color: #F59E0B; }
-  input::placeholder { color: #333; letter-spacing: 2px; font-size: 13px; }
-
-  .btn-connect {
-    background: #F59E0B;
-    color: #000;
-    border: none;
-    border-radius: 8px;
-    padding: 12px 20px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-    letter-spacing: 1px;
-  }
-
-  .btn-connect:hover { background: #FBBF24; transform: translateY(-1px); }
-  .btn-connect:disabled { background: #333; color: #666; cursor: not-allowed; transform: none; }
-
-  .controls {
-    width: 100%;
-    max-width: 360px;
-    position: relative;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .trigger-btn {
-    width: 100%;
-    padding: 28px;
-    border: none;
-    border-radius: 16px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    letter-spacing: 1px;
-    transition: all 0.15s;
-    position: relative;
-    overflow: hidden;
-    text-transform: uppercase;
-  }
-
-  .trigger-btn::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: rgba(255,255,255,0.1);
-    opacity: 0;
-    transition: opacity 0.15s;
-  }
-
-  .trigger-btn:active::after { opacity: 1; }
-  .trigger-btn:active { transform: scale(0.97); }
-
-  .btn-activate {
-    background: linear-gradient(135deg, #DC2626, #EF4444);
-    color: #fff;
-    box-shadow: 0 8px 32px rgba(220, 38, 38, 0.4);
-  }
-
-  .btn-activate:hover {
-    box-shadow: 0 12px 40px rgba(220, 38, 38, 0.6);
-    transform: translateY(-2px);
-  }
-
-  .btn-deactivate {
-    background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
-    color: #888;
-    border: 1px solid rgba(255,255,255,0.1);
-    box-shadow: none;
-  }
-
-  .btn-deactivate.ready {
-    background: linear-gradient(135deg, #059669, #10B981);
-    color: #fff;
-    border: none;
-    box-shadow: 0 8px 32px rgba(16, 185, 129, 0.4);
-  }
-
-  .btn-deactivate.ready:hover {
-    box-shadow: 0 12px 40px rgba(16, 185, 129, 0.6);
-    transform: translateY(-2px);
-  }
-
-  .mechanism-selector {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-bottom: 4px;
-  }
-
-  .mech-btn {
-    padding: 12px 8px;
-    border-radius: 10px;
-    border: 1px solid rgba(255,255,255,0.08);
-    background: rgba(255,255,255,0.03);
-    color: #666;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-  }
-
-  .mech-btn:hover { border-color: rgba(255,255,255,0.2); color: #999; }
-
-  .mech-btn.active-m1 { 
-    background: rgba(245, 158, 11, 0.15); 
-    border-color: #F59E0B; 
-    color: #F59E0B; 
-  }
-  .mech-btn.active-m2 { 
-    background: rgba(220, 38, 38, 0.15); 
-    border-color: #DC2626; 
-    color: #DC2626; 
-  }
-  .mech-btn.active-m3 { 
-    background: rgba(0, 122, 255, 0.15); 
-    border-color: #007AFF; 
-    color: #007AFF; 
-  }
-
-  .log {
-    width: 100%;
-    max-width: 360px;
-    position: relative;
-    z-index: 1;
-    margin-top: 16px;
-  }
-
-  .log-label {
-    font-size: 10px;
-    letter-spacing: 2px;
-    color: #444;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-
-  .log-entries {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 8px;
-    padding: 12px;
-    max-height: 120px;
-    overflow-y: auto;
-    font-size: 11px;
-    color: #555;
-    line-height: 1.8;
-  }
-
-  .log-entry { color: #555; }
-  .log-entry.trigger { color: #DC2626; }
-  .log-entry.deactivate { color: #34C759; }
-  .log-entry.connect { color: #F59E0B; }
-  .log-entry.system { color: #007AFF; }
-
-  .disabled-overlay {
-    opacity: 0.4;
-    pointer-events: none;
-  }
-
-  .timer {
-    text-align: center;
-    font-size: 11px;
-    color: #444;
-    margin-top: 8px;
-  }
-
-  .timer span { color: #DC2626; font-weight: 700; }
+  .sv { color:var(--text); font-weight:600; }
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:2px; }
 </style>
 </head>
 <body>
-<div class="grid-bg"></div>
+<div class="wrap">
 
-<div class="header">
-  <div class="badge">Researcher Only</div>
-  <h1>FC <span>Controller</span></h1>
-  <div class="status-bar">
-    <div class="status-dot" id="statusDot"></div>
-    <span id="statusText">Not connected</span>
-  </div>
-</div>
-
-<div class="room-section">
-  <div class="room-label">Session Room Code</div>
-  <div class="room-input-row">
-    <input type="text" id="roomInput" placeholder="e.g. HCS01" maxlength="6" />
-    <button class="btn-connect" id="connectBtn" onclick="connectToRoom()">Join</button>
-  </div>
-</div>
-
-<div class="controls disabled-overlay" id="controls">
-  <div class="room-label" style="margin-bottom:4px">Active Mechanism</div>
-  <div class="mechanism-selector">
-    <button class="mech-btn" onclick="setMechanism(1)" id="m1btn">⚠️ Alert</button>
-    <button class="mech-btn" onclick="setMechanism(2)" id="m2btn">🔴 Border</button>
-    <button class="mech-btn" onclick="setMechanism(3)" id="m3btn">📷 Camera</button>
+  <div class="header">
+    <div class="header-left">
+      <div class="logo-dot"></div>
+      <div>
+        <div class="header-title">FC Controller</div>
+        <div class="header-sub">HCS Shoulder Surfing · University of Glasgow</div>
+      </div>
+    </div>
+    <div class="tag">RESEARCHER ONLY</div>
   </div>
 
-  <button class="trigger-btn btn-activate" onclick="sendTrigger('activate')">
-    ▶ ACTIVATE MECHANISM
-  </button>
-
-  <button class="trigger-btn btn-deactivate" id="deactivateBtn" onclick="sendTrigger('deactivate')">
-    ■ DEACTIVATE
-  </button>
-</div>
-
-<div class="timer" id="timer" style="display:none">
-  Active for <span id="timerCount">0</span>s / 30s
-</div>
-
-<div class="log">
-  <div class="log-label">Session Log</div>
-  <div class="log-entries" id="logEntries">
-    <div class="log-entry system">— System ready. Enter room code to begin.</div>
+  <!-- Step 1: Room Code -->
+  <div class="card" id="card-session">
+    <div class="section-label">01 — Session Room Code</div>
+    <div class="join-row">
+      <input class="code-input" id="roomInput" placeholder="e.g. HCS01" maxlength="8" oninput="this.value=this.value.toUpperCase()">
+      <button class="btn btn-amber" onclick="connect()">Connect</button>
+      <button class="btn btn-outline" onclick="genCode()">Generate</button>
+    </div>
+    <div class="conn-status">
+      <div class="conn-dot" id="connDot"></div>
+      <span id="connLabel">Not connected — enter the same room code on the participant display</span>
+    </div>
   </div>
+
+  <!-- Step 2: Mechanism -->
+  <div class="card locked" id="card-mech">
+    <div class="section-label">02 — Select Mechanism</div>
+    <div class="mech-grid">
+      <div class="mech-card" id="card-m1" onclick="selectMech('m1')">
+        <span class="mech-icon">⚠️</span>
+        <div class="mech-name">M1</div>
+        <div class="mech-desc">Alert Icon</div>
+      </div>
+      <div class="mech-card" id="card-m2" onclick="selectMech('m2')">
+        <span class="mech-icon">🔴</span>
+        <div class="mech-name">M2</div>
+        <div class="mech-desc">Flashing Border</div>
+      </div>
+      <div class="mech-card" id="card-m3" onclick="selectMech('m3')">
+        <span class="mech-icon">📷</span>
+        <div class="mech-name">M3</div>
+        <div class="mech-desc">Camera Preview</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Trigger -->
+  <div class="card locked" id="card-trigger">
+    <div class="section-label">03 — Trigger Mechanism</div>
+    <div class="trigger-row">
+      <button class="big-btn activate" id="btnActivate" onclick="sendActivate()">▶ ACTIVATE</button>
+      <button class="big-btn deactivate" id="btnDeactivate" onclick="sendDeactivate()" disabled>■ DEACTIVATE</button>
+      <div class="timer" id="timerDisplay">00:00</div>
+    </div>
+    <!-- M3-specific navigation -->
+    <div class="m3-row" id="m3Row">
+      <button class="btn btn-ghost" onclick="sendScreen('m3-reply')">→ Reply Screen</button>
+      <button class="btn btn-ghost" onclick="sendScreen('m3-sent')">→ Sent Screen</button>
+      <button class="btn btn-ghost" onclick="sendScreen('m3-idle')">← Back to Chat</button>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <div class="section-label">Session Log</div>
+    <div class="log-box" id="logBox">
+      <div class="log-entry"><span class="log-ts">--:--:--</span><span class="log-msg">Waiting for session...</span></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="status-bar">
+  <div style="display:flex;gap:20px;align-items:center;">
+    <span>Room: <span class="sv" id="sbRoom">—</span></span>
+    <span>Mechanism: <span class="sv" id="sbMech">—</span></span>
+    <span>State: <span class="sv" id="sbState">Idle</span></span>
+  </div>
+  <span>University of Glasgow · HCS M</span>
 </div>
 
 <script>
-  // Uses a free public WebSocket relay service
-  const WS_URL = 'wss://ws.deriveddata.com/';
-  let ws = null;
-  let roomCode = '';
-  let currentMechanism = 1;
-  let isActive = false;
-  let timerInterval = null;
-  let timerCount = 0;
+  let room = null, channel = null, currentMech = null, isActive = false;
+  let timerSec = 0, timerInt = null;
 
-  function addLog(msg, type='') {
-    const log = document.getElementById('logEntries');
-    const time = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-    const entry = document.createElement('div');
-    entry.className = `log-entry ${type}`;
-    entry.textContent = `[${time}] ${msg}`;
-    log.appendChild(entry);
-    log.scrollTop = log.scrollHeight;
+  function genCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    document.getElementById('roomInput').value = Array.from({length:5}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
   }
 
-  function setMechanism(n) {
-    currentMechanism = n;
-    document.querySelectorAll('.mech-btn').forEach(b => b.className = 'mech-btn');
-    document.getElementById(`m${n}btn`).classList.add(`active-m${n}`);
-    const names = {1:'Alert Icon', 2:'Flashing Border', 3:'Camera Preview'};
-    addLog(`Mechanism set to: ${names[n]}`, 'system');
-    if (ws) sendMessage({type:'mechanism', value:n});
+  function connect() {
+    const code = document.getElementById('roomInput').value.trim().toUpperCase();
+    if (!code) { alert('Enter a room code'); return; }
+    room = 'hcs-' + code;
+    if (channel) channel.close();
+    channel = new BroadcastChannel(room);
+    channel.onmessage = e => onMsg(e.data);
+    window.addEventListener('storage', onStorage);
+    document.getElementById('connDot').className = 'conn-dot live';
+    document.getElementById('connLabel').textContent = 'Session live — Room: ' + code + ' — Open participant display with the same code';
+    document.getElementById('card-mech').className = 'card unlocked';
+    document.getElementById('sbRoom').textContent = code;
+    log('connected', 'Session started — Room: ' + code);
+    send({ type: 'fc-ready' });
   }
 
-  function connectToRoom() {
-    roomCode = document.getElementById('roomInput').value.trim().toUpperCase();
-    if (!roomCode) { alert('Please enter a room code'); return; }
-
-    document.getElementById('connectBtn').disabled = true;
-    document.getElementById('statusText').textContent = 'Connecting...';
-    document.getElementById('statusDot').className = 'status-dot waiting';
-
-    // Use a simple localStorage-based sync for same-device testing
-    // or BroadcastChannel for cross-tab, with fallback to polling
-    setupConnection();
+  function selectMech(m) {
+    if (isActive) sendDeactivate();
+    currentMech = m;
+    document.querySelectorAll('.mech-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('card-' + m).classList.add('selected');
+    document.getElementById('card-trigger').className = 'card unlocked';
+    document.getElementById('sbMech').textContent = m.toUpperCase();
+    document.getElementById('m3Row').className = m === 'm3' ? 'm3-row show' : 'm3-row';
+    document.getElementById('btnActivate').disabled = false;
+    document.getElementById('btnDeactivate').disabled = true;
+    send({ type: 'select', mech: m });
+    log('', 'Selected ' + m.toUpperCase());
   }
 
-  function setupConnection() {
-    // Use BroadcastChannel API for real-time sync between tabs/windows
-    // This works when both pages are open on the same device or network via shared URL
-    try {
-      window.channel = new BroadcastChannel(`hcs_${roomCode}`);
-      window.channel.onmessage = (e) => handleMessage(e.data);
-      onConnected();
-    } catch(e) {
-      // Fallback to localStorage polling
-      setupLocalStorageFallback();
-    }
+  function sendActivate() {
+    if (!currentMech) return;
+    isActive = true;
+    send({ type: 'activate', mech: currentMech });
+    document.getElementById('btnActivate').disabled = true;
+    document.getElementById('btnDeactivate').disabled = false;
+    document.getElementById('sbState').textContent = '🟢 ACTIVE';
+    log('activated', currentMech.toUpperCase() + ' activated');
+    startTimer();
   }
 
-  function setupLocalStorageFallback() {
-    // Poll localStorage every 200ms
-    window.pollInterval = setInterval(() => {
-      const msg = localStorage.getItem(`hcs_${roomCode}_incoming`);
-      if (msg) {
-        localStorage.removeItem(`hcs_${roomCode}_incoming`);
-        handleMessage(JSON.parse(msg));
-      }
-    }, 200);
-    onConnected();
+  function sendDeactivate() {
+    isActive = false;
+    send({ type: 'deactivate', mech: currentMech });
+    document.getElementById('btnActivate').disabled = false;
+    document.getElementById('btnDeactivate').disabled = true;
+    document.getElementById('sbState').textContent = 'Idle';
+    log('deactivated', currentMech.toUpperCase() + ' deactivated — ' + fmt(timerSec));
+    stopTimer();
   }
 
-  function onConnected() {
-    document.getElementById('statusDot').className = 'status-dot connected';
-    document.getElementById('statusText').textContent = `Room: ${roomCode} — Connected`;
-    document.getElementById('controls').classList.remove('disabled-overlay');
-    document.getElementById('roomInput').disabled = true;
-    document.getElementById('connectBtn').disabled = true;
-    addLog(`Joined room: ${roomCode}`, 'connect');
-    addLog('Participant device can now connect with same code', 'system');
-    setMechanism(1);
+  function sendScreen(screen) {
+    send({ type: 'screen', screen });
+    log('', 'Sent: ' + screen);
   }
 
-  function sendMessage(data) {
-    const msg = {...data, room: roomCode, from: 'fc'};
-    // BroadcastChannel
-    if (window.channel) window.channel.postMessage(msg);
-    // localStorage fallback
-    localStorage.setItem(`hcs_${roomCode}_msg`, JSON.stringify(msg));
-    localStorage.setItem(`hcs_${roomCode}_ts`, Date.now());
+  function send(data) {
+    const payload = { ...data, room, _t: Date.now() };
+    if (channel) channel.postMessage(payload);
+    localStorage.setItem(room + '-msg', JSON.stringify(payload));
   }
 
-  function handleMessage(data) {
-    if (data.from === 'participant') {
-      addLog(`Participant connected to room`, 'connect');
-      document.getElementById('statusText').textContent = `Room: ${roomCode} — Participant joined ✓`;
-    }
+  function onStorage(e) {
+    if (e.key === room + '-msg' && e.newValue) try { onMsg(JSON.parse(e.newValue)); } catch(err){}
   }
 
-  function sendTrigger(action) {
-    if (!roomCode) return;
-
-    const names = {1:'Alert Icon', 2:'Flashing Border', 3:'Camera Preview'};
-    sendMessage({type: 'trigger', action: action, mechanism: currentMechanism});
-
-    if (action === 'activate') {
-      isActive = true;
-      document.getElementById('deactivateBtn').classList.add('ready');
-      addLog(`ACTIVATED — ${names[currentMechanism]}`, 'trigger');
-      startTimer();
-    } else {
-      isActive = false;
-      document.getElementById('deactivateBtn').classList.remove('ready');
-      addLog(`DEACTIVATED — ${names[currentMechanism]}`, 'deactivate');
-      stopTimer();
-    }
+  function onMsg(data) {
+    if (data.type === 'participant-ready') log('connected', 'Participant display connected ✓');
   }
 
   function startTimer() {
-    timerCount = 0;
-    document.getElementById('timer').style.display = 'block';
-    timerInterval = setInterval(() => {
-      timerCount++;
-      document.getElementById('timerCount').textContent = timerCount;
-      if (timerCount >= 30) {
-        document.getElementById('timerCount').style.color = '#34C759';
-      }
-    }, 1000);
+    timerSec = 0; updateTimer();
+    timerInt = setInterval(() => { timerSec++; updateTimer(); }, 1000);
   }
-
   function stopTimer() {
-    clearInterval(timerInterval);
-    document.getElementById('timer').style.display = 'none';
-    document.getElementById('timerCount').style.color = '#DC2626';
+    clearInterval(timerInt); timerInt = null;
+    document.getElementById('timerDisplay').textContent = '00:00';
+    document.getElementById('timerDisplay').className = 'timer';
   }
+  function updateTimer() {
+    const el = document.getElementById('timerDisplay');
+    el.textContent = fmt(timerSec);
+    el.className = timerSec >= 30 ? 'timer warn' : 'timer';
+  }
+  function fmt(s) { return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
 
-  // Auto-select mechanism 1 visually
-  document.getElementById('m1btn').classList.add('active-m1');
+  function log(type, msg) {
+    const now = new Date();
+    const ts = [now.getHours(),now.getMinutes(),now.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');
+    const box = document.getElementById('logBox');
+    const el = document.createElement('div');
+    el.className = 'log-entry';
+    el.innerHTML = `<span class="log-ts">${ts}</span><span class="log-msg ${type}">${msg}</span>`;
+    box.appendChild(el);
+    box.scrollTop = box.scrollHeight;
+  }
 </script>
 </body>
 </html>
