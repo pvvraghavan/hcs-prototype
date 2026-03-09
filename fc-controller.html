@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FC Controller — HCS Study</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -14,7 +15,6 @@
     --muted: rgba(255,255,255,0.35);
     --amber: #F59E0B;
     --red: #DC2626;
-    --blue: #007AFF;
     --green: #34C759;
     --mono: 'JetBrains Mono', monospace;
     --display: 'Syne', sans-serif;
@@ -28,22 +28,20 @@
     padding-bottom: 60px;
   }
   body::before {
-    content:''; position:fixed; inset:0;
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
-    pointer-events:none; z-index:0;
   }
   .wrap { position:relative; z-index:1; max-width:720px; margin:0 auto; padding:32px 24px; }
 
   .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:32px; }
-  .logo-dot { width:10px; height:10px; border-radius:50%; background:var(--amber); box-shadow:0 0 12px var(--amber); }
   .header-left { display:flex; align-items:center; gap:14px; }
+  .logo-dot { width:10px; height:10px; border-radius:50%; background:var(--amber); box-shadow:0 0 12px var(--amber); }
   .header-title { font-family:var(--display); font-size:20px; font-weight:800; letter-spacing:-0.5px; }
   .header-sub { font-size:11px; color:var(--muted); margin-top:2px; }
-  .tag { font-size:11px; color:var(--muted); border:1px solid var(--border); border-radius:6px; padding:4px 10px; letter-spacing:0.5px; }
+  .tag { font-size:11px; color:var(--muted); border:1px solid var(--border); border-radius:6px; padding:4px 10px; }
 
-  .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; margin-bottom:20px; }
-  .card.locked { opacity:0.4; pointer-events:none; transition:opacity 0.3s; }
-  .card.unlocked { opacity:1; pointer-events:all; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; margin-bottom:20px; transition:opacity 0.3s; }
+  .card.locked { opacity:0.4; pointer-events:none; }
 
   .section-label {
     font-size:10px; letter-spacing:2px; color:var(--muted); text-transform:uppercase;
@@ -51,6 +49,7 @@
   }
   .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
 
+  /* Connection */
   .join-row { display:flex; gap:10px; }
   .code-input {
     flex:1; background:rgba(255,255,255,0.04); border:1px solid var(--border);
@@ -65,25 +64,29 @@
   .btn:active { transform:scale(0.97); }
   .btn-amber { background:var(--amber); color:#000; }
   .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
-  .btn-ghost { background:rgba(255,255,255,0.06); color:var(--text); border:1px solid var(--border); }
 
-  .conn-status { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin-top:12px; }
-  .conn-dot { width:8px; height:8px; border-radius:50%; background:var(--muted); flex-shrink:0; }
-  .conn-dot.live { background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s ease-in-out infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .mqtt-status { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin-top:12px; }
+  .status-dot { width:8px; height:8px; border-radius:50%; background:var(--muted); flex-shrink:0; transition:background 0.3s; }
+  .status-dot.connecting { background:var(--amber); animation:blink 0.8s ease-in-out infinite; }
+  .status-dot.connected { background:var(--green); box-shadow:0 0 8px var(--green); animation:connPulse 2s ease-in-out infinite; }
+  .status-dot.error { background:var(--red); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @keyframes connPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
+  /* Mechanism Cards */
   .mech-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
   .mech-card {
     background:rgba(255,255,255,0.03); border:1px solid var(--border);
     border-radius:12px; padding:18px 12px; text-align:center;
     cursor:pointer; transition:all 0.2s;
   }
-  .mech-card:hover { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.15); }
+  .mech-card:hover { background:rgba(255,255,255,0.07); }
   .mech-card.selected { border-color:var(--amber); background:rgba(245,158,11,0.1); }
   .mech-icon { font-size:28px; display:block; margin-bottom:8px; }
   .mech-name { font-family:var(--display); font-size:14px; font-weight:700; }
   .mech-desc { font-size:10px; color:var(--muted); margin-top:3px; }
 
+  /* Trigger */
   .trigger-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .big-btn {
     flex:1; min-width:130px; padding:16px 20px; border-radius:12px; border:none;
@@ -101,14 +104,17 @@
 
   .m3-row { display:none; gap:8px; margin-top:12px; flex-wrap:wrap; }
   .m3-row.show { display:flex; }
+  .btn-ghost { background:rgba(255,255,255,0.06); color:var(--text); border:1px solid var(--border); }
 
+  /* Log */
   .log-box { font-size:12px; color:var(--muted); max-height:160px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
   .log-entry { display:flex; gap:10px; }
   .log-ts { color:rgba(255,255,255,0.2); flex-shrink:0; }
   .log-msg.activated { color:var(--amber); }
   .log-msg.deactivated { color:var(--red); }
-  .log-msg.connected { color:var(--green); }
+  .log-msg.ok { color:var(--green); }
 
+  /* Status footer */
   .status-bar {
     position:fixed; bottom:0; left:0; right:0;
     background:rgba(10,10,15,0.95); backdrop-filter:blur(10px);
@@ -135,22 +141,22 @@
     <div class="tag">RESEARCHER ONLY</div>
   </div>
 
-  <!-- Step 1: Room Code -->
-  <div class="card" id="card-session">
+  <!-- Step 1 -->
+  <div class="card" id="cardSession">
     <div class="section-label">01 — Session Room Code</div>
     <div class="join-row">
       <input class="code-input" id="roomInput" placeholder="e.g. HCS01" maxlength="8" oninput="this.value=this.value.toUpperCase()">
       <button class="btn btn-amber" onclick="connect()">Connect</button>
       <button class="btn btn-outline" onclick="genCode()">Generate</button>
     </div>
-    <div class="conn-status">
-      <div class="conn-dot" id="connDot"></div>
-      <span id="connLabel">Not connected — enter the same room code on the participant display</span>
+    <div class="mqtt-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusLabel">Not connected — generate a code, then open participant-display on the phone with the same code</span>
     </div>
   </div>
 
-  <!-- Step 2: Mechanism -->
-  <div class="card locked" id="card-mech">
+  <!-- Step 2 -->
+  <div class="card locked" id="cardMech">
     <div class="section-label">02 — Select Mechanism</div>
     <div class="mech-grid">
       <div class="mech-card" id="card-m1" onclick="selectMech('m1')">
@@ -171,15 +177,14 @@
     </div>
   </div>
 
-  <!-- Step 3: Trigger -->
-  <div class="card locked" id="card-trigger">
+  <!-- Step 3 -->
+  <div class="card locked" id="cardTrigger">
     <div class="section-label">03 — Trigger Mechanism</div>
     <div class="trigger-row">
       <button class="big-btn activate" id="btnActivate" onclick="sendActivate()">▶ ACTIVATE</button>
       <button class="big-btn deactivate" id="btnDeactivate" onclick="sendDeactivate()" disabled>■ DEACTIVATE</button>
       <div class="timer" id="timerDisplay">00:00</div>
     </div>
-    <!-- M3-specific navigation -->
     <div class="m3-row" id="m3Row">
       <button class="btn btn-ghost" onclick="sendScreen('m3-reply')">→ Reply Screen</button>
       <button class="btn btn-ghost" onclick="sendScreen('m3-sent')">→ Sent Screen</button>
@@ -207,7 +212,10 @@
 </div>
 
 <script>
-  let room = null, channel = null, currentMech = null, isActive = false;
+  let mqttClient = null;
+  let topic = null;
+  let currentMech = null;
+  let isActive = false;
   let timerSec = 0, timerInt = null;
 
   function genCode() {
@@ -218,17 +226,48 @@
   function connect() {
     const code = document.getElementById('roomInput').value.trim().toUpperCase();
     if (!code) { alert('Enter a room code'); return; }
-    room = 'hcs-' + code;
-    if (channel) channel.close();
-    channel = new BroadcastChannel(room);
-    channel.onmessage = e => onMsg(e.data);
-    window.addEventListener('storage', onStorage);
-    document.getElementById('connDot').className = 'conn-dot live';
-    document.getElementById('connLabel').textContent = 'Session live — Room: ' + code + ' — Open participant display with the same code';
-    document.getElementById('card-mech').className = 'card unlocked';
-    document.getElementById('sbRoom').textContent = code;
-    log('connected', 'Session started — Room: ' + code);
-    send({ type: 'fc-ready' });
+
+    topic = 'hcs-study/' + code;
+    setDot('connecting');
+    setLabel('Connecting to broker...');
+
+    if (mqttClient) { try { mqttClient.end(true); } catch(e){} }
+
+    mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+      clientId: 'fc-' + Math.random().toString(36).substr(2,9),
+      clean: true,
+      reconnectPeriod: 3000,
+      connectTimeout: 10000,
+    });
+
+    mqttClient.on('connect', () => {
+      mqttClient.subscribe(topic);
+      setDot('connected');
+      setLabel('Connected — Room: ' + code + ' · Open participant-display.html on phone with code: ' + code);
+      document.getElementById('cardMech').classList.remove('locked');
+      document.getElementById('sbRoom').textContent = code;
+      log('ok', 'Session live — Room: ' + code);
+      publish({ type: 'fc-ready' });
+    });
+
+    mqttClient.on('error', err => {
+      setDot('error');
+      setLabel('Connection error — check internet and try again');
+      log('deactivated', 'MQTT error: ' + err.message);
+    });
+
+    mqttClient.on('offline', () => {
+      setDot('connecting');
+      setLabel('Reconnecting...');
+    });
+
+    mqttClient.on('message', (t, payload) => {
+      try {
+        const data = JSON.parse(payload.toString());
+        if (data.from === 'fc') return; // ignore own messages
+        if (data.type === 'participant-ready') log('ok', 'Participant display connected ✓');
+      } catch(e){}
+    });
   }
 
   function selectMech(m) {
@@ -236,19 +275,19 @@
     currentMech = m;
     document.querySelectorAll('.mech-card').forEach(c => c.classList.remove('selected'));
     document.getElementById('card-' + m).classList.add('selected');
-    document.getElementById('card-trigger').className = 'card unlocked';
+    document.getElementById('cardTrigger').classList.remove('locked');
     document.getElementById('sbMech').textContent = m.toUpperCase();
     document.getElementById('m3Row').className = m === 'm3' ? 'm3-row show' : 'm3-row';
     document.getElementById('btnActivate').disabled = false;
     document.getElementById('btnDeactivate').disabled = true;
-    send({ type: 'select', mech: m });
+    publish({ type: 'select', mech: m });
     log('', 'Selected ' + m.toUpperCase());
   }
 
   function sendActivate() {
     if (!currentMech) return;
     isActive = true;
-    send({ type: 'activate', mech: currentMech });
+    publish({ type: 'activate', mech: currentMech });
     document.getElementById('btnActivate').disabled = true;
     document.getElementById('btnDeactivate').disabled = false;
     document.getElementById('sbState').textContent = '🟢 ACTIVE';
@@ -258,7 +297,7 @@
 
   function sendDeactivate() {
     isActive = false;
-    send({ type: 'deactivate', mech: currentMech });
+    publish({ type: 'deactivate', mech: currentMech });
     document.getElementById('btnActivate').disabled = false;
     document.getElementById('btnDeactivate').disabled = true;
     document.getElementById('sbState').textContent = 'Idle';
@@ -267,23 +306,17 @@
   }
 
   function sendScreen(screen) {
-    send({ type: 'screen', screen });
-    log('', 'Sent: ' + screen);
+    publish({ type: 'screen', screen });
+    log('', 'Screen → ' + screen);
   }
 
-  function send(data) {
-    const payload = { ...data, room, _t: Date.now() };
-    if (channel) channel.postMessage(payload);
-    localStorage.setItem(room + '-msg', JSON.stringify(payload));
+  function publish(data) {
+    if (!mqttClient || !topic) return;
+    mqttClient.publish(topic, JSON.stringify({ ...data, from: 'fc', _t: Date.now() }));
   }
 
-  function onStorage(e) {
-    if (e.key === room + '-msg' && e.newValue) try { onMsg(JSON.parse(e.newValue)); } catch(err){}
-  }
-
-  function onMsg(data) {
-    if (data.type === 'participant-ready') log('connected', 'Participant display connected ✓');
-  }
+  function setDot(state) { document.getElementById('statusDot').className = 'status-dot ' + state; }
+  function setLabel(txt) { document.getElementById('statusLabel').textContent = txt; }
 
   function startTimer() {
     timerSec = 0; updateTimer();
