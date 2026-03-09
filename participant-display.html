@@ -4,431 +4,422 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>HCS Study — Participant</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
   body {
-    background: #1a1a1a;
+    background: #111;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
     min-height: 100vh;
     font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif;
-    padding: 20px 0 80px;
+    padding: 16px 0 80px;
   }
 
   /* ── Join Screen ── */
   #joinScreen {
     position: fixed; inset: 0; z-index: 9999;
-    background: #111;
+    background: #0d0d0d;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: 32px;
-    gap: 20px;
+    padding: 32px; gap: 18px;
   }
-  .join-title { color: #fff; font-size: 26px; font-weight: 700; text-align: center; letter-spacing: -0.5px; }
+  .join-emoji { font-size: 56px; }
+  .join-title { color: #fff; font-size: 26px; font-weight: 700; text-align: center; letter-spacing: -0.5px; line-height: 1.2; }
   .join-sub { color: rgba(255,255,255,0.4); font-size: 14px; text-align: center; }
   .join-input {
     width: 100%; max-width: 300px;
     background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 12px;
-    padding: 16px 20px;
-    color: #fff;
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: 8px;
-    text-align: center;
-    text-transform: uppercase;
-    outline: none;
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 14px; padding: 16px 20px;
+    color: #fff; font-size: 28px; font-weight: 700;
+    letter-spacing: 8px; text-align: center;
+    text-transform: uppercase; outline: none;
+    transition: border-color 0.2s;
   }
-  .join-input::placeholder { color: rgba(255,255,255,0.2); letter-spacing: 2px; font-size: 16px; font-weight: 400; }
+  .join-input:focus { border-color: #F59E0B; }
+  .join-input::placeholder { color:rgba(255,255,255,0.2); font-size:16px; font-weight:400; letter-spacing:2px; }
   .join-btn {
     width: 100%; max-width: 300px;
     background: #F59E0B; color: #000;
     border: none; border-radius: 12px;
-    padding: 16px; font-size: 17px; font-weight: 700;
-    cursor: pointer;
+    padding: 16px; font-size: 17px; font-weight: 700; cursor: pointer;
+    transition: all 0.15s;
   }
-  .join-status { color: rgba(255,255,255,0.4); font-size: 13px; }
+  .join-btn:active { transform: scale(0.98); background: #fbbf24; }
+  .join-btn:disabled { opacity: 0.5; pointer-events: none; }
+  .join-status-row { display:flex; align-items:center; gap:8px; font-size:13px; color:rgba(255,255,255,0.4); }
+  .j-dot { width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,0.2); }
+  .j-dot.connecting { background:#F59E0B; animation:jblink 0.7s ease-in-out infinite; }
+  .j-dot.ok { background:#34C759; }
+  .j-dot.err { background:#DC2626; }
+  @keyframes jblink { 0%,100%{opacity:1} 50%{opacity:0.2} }
 
   /* ── Phone Shell ── */
   .phone {
-    width: 390px;
-    height: 844px;
-    background: #fff;
-    border-radius: 48px;
-    overflow: hidden;
-    position: relative;
-    box-shadow: 0 0 0 2px #333, 0 0 0 4px #1a1a1a, 0 40px 80px rgba(0,0,0,0.7);
+    width: 390px; height: 844px; background: #fff;
+    border-radius: 48px; overflow: hidden; position: relative;
+    box-shadow: 0 0 0 2px #333, 0 0 0 4px #1a1a1a, 0 40px 80px rgba(0,0,0,0.8);
     flex-shrink: 0;
   }
 
   /* ── Screens ── */
   .screen { position:absolute; inset:0; background:#F2F2F7; display:none; flex-direction:column; }
   .screen.active { display:flex; }
+  .screen.pop { animation:popIn 0.25s ease-out; }
+  @keyframes popIn { from{opacity:0;transform:scale(0.98)} to{opacity:1;transform:scale(1)} }
 
   /* Status Bar */
-  .status-bar { height:50px; background:#fff; display:flex; align-items:center; justify-content:space-between; padding:0 20px; flex-shrink:0; }
-  .status-time { font-size:15px; font-weight:600; color:#1C1C1E; }
-  .status-icons { font-size:13px; color:#1C1C1E; }
-  .status-bar.dark { background:#F2F2F7; }
+  .sb { height:50px; background:#fff; display:flex; align-items:center; justify-content:space-between; padding:0 20px; flex-shrink:0; }
+  .sb.grey { background:#F2F2F7; }
+  .sb-time { font-size:15px; font-weight:600; color:#1C1C1E; }
+  .sb-icons { font-size:13px; color:#1C1C1E; }
 
   /* Nav */
-  .nav-header { height:52px; background:#fff; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #E5E5EA; flex-shrink:0; }
+  .nav { height:52px; background:#fff; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #E5E5EA; flex-shrink:0; }
   .nav-back { color:#007AFF; font-size:17px; cursor:pointer; }
   .nav-title { font-size:17px; font-weight:600; color:#1C1C1E; }
-  .nav-action { color:#007AFF; font-size:17px; }
+  .nav-edit { color:#007AFF; font-size:17px; }
 
   /* Search */
-  .search-bar { margin:8px 16px; background:#E5E5EA; border-radius:10px; padding:8px 12px; display:flex; align-items:center; gap:6px; flex-shrink:0; color:#8E8E93; font-size:15px; }
+  .search { margin:8px 16px; background:#E5E5EA; border-radius:10px; padding:8px 12px; color:#8E8E93; font-size:15px; flex-shrink:0; }
 
   /* Chat List */
   .chat-list { flex:1; overflow:hidden; background:#fff; }
   .chat-row { display:flex; align-items:center; padding:12px 16px; border-bottom:1px solid #F2F2F7; gap:12px; }
-  .avatar { width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700; color:#fff; flex-shrink:0; }
-  .chat-info { flex:1; min-width:0; }
-  .chat-name { font-size:17px; font-weight:600; color:#1C1C1E; }
-  .chat-preview { font-size:15px; color:#8E8E93; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
-  .chat-meta { display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
-  .chat-time { font-size:13px; color:#8E8E93; }
-  .badge { background:#007AFF; color:#fff; border-radius:50%; width:22px; height:22px; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .av { width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700; color:#fff; flex-shrink:0; }
+  .ci { flex:1; min-width:0; }
+  .cn { font-size:17px; font-weight:600; color:#1C1C1E; }
+  .cp { font-size:15px; color:#8E8E93; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+  .cm { display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
+  .ct { font-size:13px; color:#8E8E93; }
+  .bdg { background:#007AFF; color:#fff; border-radius:50%; width:22px; height:22px; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; }
 
   /* Bottom Nav */
-  .bottom-nav { height:83px; background:#fff; border-top:1px solid #E5E5EA; display:flex; align-items:flex-start; justify-content:space-around; padding-top:10px; flex-shrink:0; }
-  .nav-item { display:flex; flex-direction:column; align-items:center; gap:4px; font-size:10px; color:#8E8E93; }
-  .nav-item.active { color:#007AFF; }
-  .nav-icon { font-size:22px; }
+  .bnav { height:83px; background:#fff; border-top:1px solid #E5E5EA; display:flex; align-items:flex-start; justify-content:space-around; padding-top:10px; flex-shrink:0; }
+  .ni { display:flex; flex-direction:column; align-items:center; gap:4px; font-size:10px; color:#8E8E93; }
+  .ni.on { color:#007AFF; }
+  .ni-icon { font-size:22px; }
 
   /* M1 Alert Icon */
-  .alert-icon {
+  #alertIcon {
     position:absolute; top:95px; right:16px;
     width:48px; height:48px; border-radius:50%;
     background:#F59E0B; display:none; align-items:center; justify-content:center;
     font-size:24px; font-weight:700; color:#fff;
     box-shadow:0 0 16px rgba(245,158,11,0.6);
     z-index:10; cursor:pointer;
-    animation: alertAppear 0.3s ease-out;
   }
-  .alert-icon.show { display:flex; }
-  .alert-icon.pulse { animation:alertPulse 0.8s ease-in-out infinite; }
-  @keyframes alertAppear { from{opacity:0;transform:scale(0.5)} to{opacity:1;transform:scale(1)} }
-  @keyframes alertPulse { 0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 16px rgba(245,158,11,0.6)} 50%{opacity:0.6;transform:scale(0.9);box-shadow:0 0 24px rgba(245,158,11,0.9)} }
+  #alertIcon.show { display:flex; animation:alertIn 0.3s ease-out; }
+  #alertIcon.pulse { animation:alertPulse 0.8s ease-in-out infinite !important; }
+  @keyframes alertIn { from{opacity:0;transform:scale(0.4)} to{opacity:1;transform:scale(1)} }
+  @keyframes alertPulse {
+    0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 16px rgba(245,158,11,0.6)}
+    50%{opacity:0.6;transform:scale(0.9);box-shadow:0 0 28px rgba(245,158,11,0.9)}
+  }
 
-  /* M2 Flashing Border */
-  .border-flash {
-    position:absolute; inset:0; pointer-events:none; z-index:20; border-radius:48px;
-  }
-  .border-flash.on {
-    animation:borderAnim 0.6s ease-in-out infinite;
-  }
+  /* M2 Border */
+  #borderFlash { position:absolute; inset:0; pointer-events:none; z-index:20; border-radius:48px; }
+  #borderFlash.on { animation:borderAnim 0.6s ease-in-out infinite; }
   @keyframes borderAnim {
-    0%,100% { box-shadow:inset 0 0 0 4px #DC2626, inset 0 0 24px rgba(220,38,38,0.45); }
-    50% { box-shadow:inset 0 0 0 4px rgba(220,38,38,0.35), inset 0 0 8px rgba(220,38,38,0.1); }
+    0%,100%{box-shadow:inset 0 0 0 4px #DC2626,inset 0 0 24px rgba(220,38,38,0.45)}
+    50%{box-shadow:inset 0 0 0 4px rgba(220,38,38,0.3),inset 0 0 8px rgba(220,38,38,0.1)}
   }
 
-  /* Chat Screen */
-  .chat-screen { background:#F2F2F7; }
-  .chat-header { height:52px; background:rgba(242,242,247,0.95); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #E5E5EA; flex-shrink:0; }
-  .messages-area { flex:1; padding:16px; overflow:hidden; display:flex; flex-direction:column; gap:8px; }
-  .timestamp-row { text-align:center; color:#8E8E93; font-size:13px; margin:8px 0; }
-  .bubble-wrap { display:flex; align-items:flex-end; gap:8px; }
-  .bubble-wrap.sent { justify-content:flex-end; }
-  .bubble { max-width:220px; padding:10px 14px; border-radius:20px; font-size:17px; line-height:1.3; }
-  .bubble.received { background:#E5E5EA; color:#1C1C1E; border-bottom-left-radius:4px; }
-  .bubble.sent { background:#007AFF; color:#fff; border-bottom-right-radius:4px; }
-  .chat-input-bar { height:83px; background:#fff; border-top:1px solid #E5E5EA; display:flex; align-items:center; padding:12px 16px; gap:10px; flex-shrink:0; cursor:pointer; }
-  .input-field { flex:1; background:#F2F2F7; border:1px solid #E5E5EA; border-radius:20px; padding:10px 16px; font-size:17px; color:#8E8E93; }
-  .input-field.typed { color:#1C1C1E; }
-  .send-btn { width:32px; height:32px; background:#007AFF; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; cursor:pointer; flex-shrink:0; }
-  .cam-icon { font-size:22px; cursor:pointer; color:#8E8E93; }
+  /* Chat screen */
+  .chat-bg { background:#F2F2F7; }
+  .chat-hdr { height:52px; background:rgba(242,242,247,0.95); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #E5E5EA; flex-shrink:0; }
+  .msgs { flex:1; padding:16px; display:flex; flex-direction:column; gap:8px; overflow:hidden; }
+  .ts-row { text-align:center; color:#8E8E93; font-size:13px; margin:8px 0; }
+  .bw { display:flex; align-items:flex-end; }
+  .bw.s { justify-content:flex-end; }
+  .bbl { max-width:220px; padding:10px 14px; border-radius:20px; font-size:17px; line-height:1.3; }
+  .bbl.r { background:#E5E5EA; color:#1C1C1E; border-bottom-left-radius:4px; }
+  .bbl.s { background:#007AFF; color:#fff; border-bottom-right-radius:4px; }
+  .input-bar { height:83px; background:#fff; border-top:1px solid #E5E5EA; display:flex; align-items:center; padding:12px 16px; gap:10px; flex-shrink:0; }
+  .ifield { flex:1; background:#F2F2F7; border:1px solid #E5E5EA; border-radius:20px; padding:10px 16px; font-size:17px; color:#8E8E93; }
+  .ifield.typed { color:#1C1C1E; }
+  .send { width:32px; height:32px; background:#007AFF; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; cursor:pointer; flex-shrink:0; }
+  .camico { font-size:22px; color:#8E8E93; cursor:pointer; }
 
-  /* M3 Camera preview */
-  .camera-thumb {
+  /* M3 Camera thumbnail */
+  #camThumb {
     position:absolute; bottom:100px; right:16px;
     width:120px; height:160px;
     background:linear-gradient(180deg,#4A4A4A 0%,#2C2C2C 100%);
-    border-radius:12px; border:2px solid #fff;
-    overflow:visible; z-index:10; display:none;
+    border-radius:12px; border:2px solid #fff; overflow:visible;
+    z-index:10; display:none;
     flex-direction:column; align-items:center; justify-content:flex-end;
     padding-bottom:12px;
     box-shadow:0 4px 20px rgba(0,0,0,0.5);
-    animation:camAppear 0.4s ease-out;
   }
-  .camera-thumb.show { display:flex; }
-  @keyframes camAppear { from{opacity:0;transform:scale(0.8) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
-  .threat-label { position:absolute; top:-22px; left:50%; transform:translateX(-50%); white-space:nowrap; color:#F59E0B; font-size:11px; font-weight:600; display:flex; align-items:center; gap:3px; }
-  .silhouettes { display:flex; gap:8px; align-items:flex-end; }
-  .silhouette { display:flex; flex-direction:column; align-items:center; gap:2px; }
-  .sil-head { width:22px; height:22px; border-radius:50%; background:#5a5a5a; }
-  .sil-head.threat { border:2px solid #F59E0B; animation:gazeRing 1s ease-in-out infinite; }
+  #camThumb.show { display:flex; animation:camIn 0.4s ease-out; }
+  @keyframes camIn { from{opacity:0;transform:scale(0.8) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
+  .threat-lbl { position:absolute; top:-24px; left:50%; transform:translateX(-50%); white-space:nowrap; color:#F59E0B; font-size:11px; font-weight:600; }
+  .sils { display:flex; gap:8px; align-items:flex-end; }
+  .sil { display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .sh { width:22px; height:22px; border-radius:50%; background:#5a5a5a; }
+  .sh.t { border:2px solid #F59E0B; animation:gazeRing 1s ease-in-out infinite; }
   @keyframes gazeRing { 0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0.7)} 50%{box-shadow:0 0 0 5px rgba(245,158,11,0.1)} }
-  .sil-body { width:28px; height:36px; border-radius:6px 6px 0 0; background:#5a5a5a; }
+  .sb2 { width:28px; height:36px; border-radius:6px 6px 0 0; background:#5a5a5a; }
 
-  /* Transition animation */
-  .screen.pop-in { animation:popIn 0.25s ease-out; }
-  @keyframes popIn { from{opacity:0;transform:scale(0.98)} to{opacity:1;transform:scale(1)} }
-
-  /* Bottom info bar */
+  /* Info bar below phone */
   .info-bar {
-    margin-top: 16px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    padding: 10px 16px;
-    font-size: 12px;
-    color: rgba(255,255,255,0.4);
-    text-align: center;
-    width: 390px;
+    margin-top:14px; display:none;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+    border-radius:10px; padding:10px 18px;
+    font-size:12px; color:rgba(255,255,255,0.4); text-align:center; width:390px;
   }
-  .info-bar span { color: rgba(255,255,255,0.7); font-weight: 600; }
+  .info-bar span { color:rgba(255,255,255,0.7); font-weight:600; }
 </style>
 </head>
 <body>
 
-<!-- ── Join Screen ── -->
+<!-- ── Join ── -->
 <div id="joinScreen">
-  <div style="font-size:48px">📱</div>
+  <div class="join-emoji">📱</div>
   <div class="join-title">HCS Study<br>Participant Display</div>
-  <div class="join-sub">Enter the room code given by the researcher</div>
-  <input class="join-input" id="joinInput" placeholder="CODE" maxlength="8" oninput="this.value=this.value.toUpperCase()">
-  <button class="join-btn" onclick="joinSession()">Join Session</button>
-  <div class="join-status" id="joinStatus">University of Glasgow · HCS</div>
+  <div class="join-sub">Enter the room code from the researcher's laptop</div>
+  <input class="join-input" id="joinInput" placeholder="CODE" maxlength="8" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')joinSession()">
+  <button class="join-btn" id="joinBtn" onclick="joinSession()">Join Session</button>
+  <div class="join-status-row">
+    <div class="j-dot" id="jDot"></div>
+    <span id="jLabel">University of Glasgow · HCS</span>
+  </div>
 </div>
 
 <!-- ── Phone ── -->
 <div class="phone" id="phone">
 
-  <!-- M2 Border Overlay -->
-  <div class="border-flash" id="borderFlash"></div>
+  <!-- Overlays (always present, activated by signals) -->
+  <div id="borderFlash"></div>
 
-  <!-- ════════════════════════════════ -->
-  <!-- SCREEN: Waiting                 -->
-  <!-- ════════════════════════════════ -->
+  <!-- WAITING -->
   <div class="screen active" id="screen-waiting">
     <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px;text-align:center;">
-      <div style="font-size:48px">⏳</div>
+      <div style="font-size:56px">⏳</div>
       <div style="font-size:18px;font-weight:700;color:#1C1C1E;">Waiting for researcher</div>
       <div style="font-size:14px;color:#8E8E93;">The study will begin shortly</div>
     </div>
   </div>
 
-  <!-- ════════════════════════════════ -->
-  <!-- SCREEN: M1 / M2 — Chat List    -->
-  <!-- ════════════════════════════════ -->
+  <!-- CHATLIST (M1 / M2) -->
   <div class="screen" id="screen-chatlist">
-    <div class="status-bar">
-      <span class="status-time">09:41</span>
-      <span class="status-icons">●●● WiFi 100%</span>
-    </div>
-    <div class="nav-header">
-      <span class="nav-back"></span>
-      <span class="nav-title">Messages</span>
-      <span class="nav-action">Edit</span>
-    </div>
-    <div class="search-bar">🔍 Search</div>
+    <div class="sb"><span class="sb-time">09:41</span><span class="sb-icons">●●● WiFi 100%</span></div>
+    <div class="nav"><span class="nav-back"></span><span class="nav-title">Messages</span><span class="nav-edit">Edit</span></div>
+    <div class="search">🔍 Search</div>
     <div class="chat-list">
-      <div class="chat-row"><div class="avatar" style="background:#007AFF">SJ</div><div class="chat-info"><div class="chat-name">Sarah Johnson</div><div class="chat-preview">Are you coming tonight?</div></div><div class="chat-meta"><span class="chat-time">2m ago</span><span class="badge">2</span></div></div>
-      <div class="chat-row"><div class="avatar" style="background:#34C759">MK</div><div class="chat-info"><div class="chat-name">Mike Khan</div><div class="chat-preview">I sent you the files</div></div><div class="chat-meta"><span class="chat-time">15m ago</span></div></div>
-      <div class="chat-row"><div class="avatar" style="background:#F59E0B">AL</div><div class="chat-info"><div class="chat-name">Amy Lee</div><div class="chat-preview">Haha yes exactly 😂</div></div><div class="chat-meta"><span class="chat-time">1h ago</span></div></div>
-      <div class="chat-row"><div class="avatar" style="background:#DC2626">TR</div><div class="chat-info"><div class="chat-name">Tom Richards</div><div class="chat-preview">Let me know when you're free.</div></div><div class="chat-meta"><span class="chat-time">2h ago</span><span class="badge">1</span></div></div>
-      <div class="chat-row"><div class="avatar" style="background:#8E8E93">JB</div><div class="chat-info"><div class="chat-name">James Brown</div><div class="chat-preview">Thanks for earlier!</div></div><div class="chat-meta"><span class="chat-time">3h ago</span></div></div>
+      <div class="chat-row"><div class="av" style="background:#007AFF">SJ</div><div class="ci"><div class="cn">Sarah Johnson</div><div class="cp">Are you coming tonight?</div></div><div class="cm"><span class="ct">2m ago</span><span class="bdg">2</span></div></div>
+      <div class="chat-row"><div class="av" style="background:#34C759">MK</div><div class="ci"><div class="cn">Mike Khan</div><div class="cp">I sent you the files</div></div><div class="cm"><span class="ct">15m ago</span></div></div>
+      <div class="chat-row"><div class="av" style="background:#F59E0B">AL</div><div class="ci"><div class="cn">Amy Lee</div><div class="cp">Haha yes exactly 😂</div></div><div class="cm"><span class="ct">1h ago</span></div></div>
+      <div class="chat-row"><div class="av" style="background:#DC2626">TR</div><div class="ci"><div class="cn">Tom Richards</div><div class="cp">Let me know when you're free.</div></div><div class="cm"><span class="ct">2h ago</span><span class="bdg">1</span></div></div>
+      <div class="chat-row"><div class="av" style="background:#8E8E93">JB</div><div class="ci"><div class="cn">James Brown</div><div class="cp">Thanks for earlier!</div></div><div class="cm"><span class="ct">3h ago</span></div></div>
     </div>
-    <!-- M1 Alert Icon -->
-    <div class="alert-icon" id="alertIcon" onclick="this.classList.toggle('pulse')">!</div>
-    <div class="bottom-nav">
-      <div class="nav-item active"><div class="nav-icon">💬</div><span>Chats</span></div>
-      <div class="nav-item"><div class="nav-icon">📞</div><span>Calls</span></div>
-      <div class="nav-item"><div class="nav-icon">🔵</div><span>Stories</span></div>
-      <div class="nav-item"><div class="nav-icon">⚙️</div><span>Settings</span></div>
+    <!-- M1 alert icon lives here -->
+    <div id="alertIcon" onclick="this.classList.toggle('pulse')">!</div>
+    <div class="bnav">
+      <div class="ni on"><div class="ni-icon">💬</div><span>Chats</span></div>
+      <div class="ni"><div class="ni-icon">📞</div><span>Calls</span></div>
+      <div class="ni"><div class="ni-icon">🔵</div><span>Stories</span></div>
+      <div class="ni"><div class="ni-icon">⚙️</div><span>Settings</span></div>
     </div>
   </div>
 
-  <!-- ════════════════════════════════ -->
-  <!-- SCREEN: M3 Idle — Chat Sarah    -->
-  <!-- ════════════════════════════════ -->
-  <div class="screen chat-screen" id="screen-m3-idle">
-    <div class="status-bar dark">
-      <span class="status-time">09:41</span>
-      <span class="status-icons">●●● WiFi 100%</span>
-    </div>
-    <div class="chat-header">
-      <span class="nav-back" style="color:#007AFF">‹ Back</span>
-      <span class="nav-title">Sarah Johnson</span>
+  <!-- M3 IDLE — Sarah chat -->
+  <div class="screen chat-bg" id="screen-m3-idle">
+    <div class="sb grey"><span class="sb-time">09:41</span><span class="sb-icons">●●● WiFi 100%</span></div>
+    <div class="chat-hdr">
+      <span style="color:#007AFF">‹ Back</span>
+      <span style="font-size:17px;font-weight:600;color:#1C1C1E;">Sarah Johnson</span>
       <span>📞</span>
     </div>
     <div style="position:absolute;top:115px;right:16px;font-size:20px;z-index:5;background:#E5E5EA;border-radius:8px;padding:4px 6px;">📷</div>
-    <div class="messages-area">
-      <div class="bubble-wrap received"><div class="bubble received">Hey!</div></div>
-      <div class="bubble-wrap received"><div class="bubble received">Are you coming tonight?</div></div>
-      <div class="timestamp-row">Today 7:42 PM</div>
-      <div class="bubble-wrap sent"><div class="bubble sent">Hello!</div></div>
-      <div class="bubble-wrap sent"><div class="bubble sent">What time?</div></div>
+    <div class="msgs">
+      <div class="bw"><div class="bbl r">Hey!</div></div>
+      <div class="bw"><div class="bbl r">Are you coming tonight?</div></div>
+      <div class="ts-row">Today 7:42 PM</div>
+      <div class="bw s"><div class="bbl s">Hello!</div></div>
+      <div class="bw s"><div class="bbl s">What time?</div></div>
     </div>
-    <div class="chat-input-bar" id="m3IdleInput" onclick="goToScreen('m3-reply')">
-      <span class="cam-icon">📷</span>
-      <div class="input-field">iMessage</div>
+    <div class="input-bar" onclick="goTo('m3-reply')" style="cursor:pointer">
+      <span class="camico">📷</span>
+      <div class="ifield">iMessage</div>
       <span style="font-size:22px;color:#8E8E93;">🎤</span>
     </div>
   </div>
 
-  <!-- ════════════════════════════════ -->
-  <!-- SCREEN: M3 Reply                -->
-  <!-- ════════════════════════════════ -->
-  <div class="screen chat-screen" id="screen-m3-reply">
-    <div class="status-bar dark">
-      <span class="status-time">09:41</span>
-      <span class="status-icons">●●● WiFi 100%</span>
-    </div>
-    <div class="chat-header">
-      <span class="nav-back" style="color:#007AFF" onclick="goToScreen('m3-idle')">‹ Back</span>
-      <span class="nav-title">Sarah Johnson</span>
+  <!-- M3 REPLY -->
+  <div class="screen chat-bg" id="screen-m3-reply">
+    <div class="sb grey"><span class="sb-time">09:41</span><span class="sb-icons">●●● WiFi 100%</span></div>
+    <div class="chat-hdr">
+      <span style="color:#007AFF;cursor:pointer" onclick="goTo('m3-idle')">‹ Back</span>
+      <span style="font-size:17px;font-weight:600;color:#1C1C1E;">Sarah Johnson</span>
       <span>📞</span>
     </div>
-    <div class="messages-area">
-      <div class="bubble-wrap received"><div class="bubble received">Hey!</div></div>
-      <div class="bubble-wrap received"><div class="bubble received">Are you coming tonight?</div></div>
-      <div class="timestamp-row">Today 7:42 PM</div>
-      <div class="bubble-wrap sent"><div class="bubble sent">Hello!</div></div>
+    <div class="msgs">
+      <div class="bw"><div class="bbl r">Hey!</div></div>
+      <div class="bw"><div class="bbl r">Are you coming tonight?</div></div>
+      <div class="ts-row">Today 7:42 PM</div>
+      <div class="bw s"><div class="bbl s">Hello!</div></div>
     </div>
-    <div class="chat-input-bar">
-      <span class="cam-icon">📷</span>
-      <div class="input-field typed">Sure, What time?</div>
-      <div class="send-btn" onclick="goToScreen('m3-sent')">↑</div>
+    <div class="input-bar">
+      <span class="camico">📷</span>
+      <div class="ifield typed">Sure, What time?</div>
+      <div class="send" onclick="goTo('m3-sent')">↑</div>
     </div>
   </div>
 
-  <!-- ════════════════════════════════ -->
-  <!-- SCREEN: M3 Sent                 -->
-  <!-- ════════════════════════════════ -->
-  <div class="screen chat-screen" id="screen-m3-sent">
-    <div class="status-bar dark">
-      <span class="status-time">09:41</span>
-      <span class="status-icons">●●● WiFi 100%</span>
-    </div>
-    <div class="chat-header">
-      <span class="nav-back" style="color:#007AFF" onclick="goToScreen('m3-idle')">‹ Back</span>
-      <span class="nav-title">Sarah Johnson</span>
+  <!-- M3 SENT -->
+  <div class="screen chat-bg" id="screen-m3-sent">
+    <div class="sb grey"><span class="sb-time">09:41</span><span class="sb-icons">●●● WiFi 100%</span></div>
+    <div class="chat-hdr">
+      <span style="color:#007AFF;cursor:pointer" onclick="goTo('m3-idle')">‹ Back</span>
+      <span style="font-size:17px;font-weight:600;color:#1C1C1E;">Sarah Johnson</span>
       <span>📞</span>
     </div>
-    <!-- Camera preview (shown when FC activates) -->
-    <div class="camera-thumb" id="camThumb">
-      <span class="threat-label">👁 Threat detected</span>
-      <div class="silhouettes">
-        <div class="silhouette"><div class="sil-head threat"></div><div class="sil-body"></div></div>
-        <div class="silhouette"><div class="sil-head"></div><div class="sil-body"></div></div>
+    <!-- Camera preview overlay -->
+    <div id="camThumb">
+      <span class="threat-lbl">👁 Threat detected</span>
+      <div class="sils">
+        <div class="sil"><div class="sh t"></div><div class="sb2"></div></div>
+        <div class="sil"><div class="sh"></div><div class="sb2"></div></div>
       </div>
     </div>
-    <div class="messages-area">
-      <div class="bubble-wrap received"><div class="bubble received">Hey!</div></div>
-      <div class="bubble-wrap received"><div class="bubble received">Are you coming tonight?</div></div>
-      <div class="timestamp-row">Today 7:42 PM</div>
-      <div class="bubble-wrap sent"><div class="bubble sent">Hello!</div></div>
-      <div class="bubble-wrap sent"><div class="bubble sent">Sure, What time?</div></div>
+    <div class="msgs">
+      <div class="bw"><div class="bbl r">Hey!</div></div>
+      <div class="bw"><div class="bbl r">Are you coming tonight?</div></div>
+      <div class="ts-row">Today 7:42 PM</div>
+      <div class="bw s"><div class="bbl s">Hello!</div></div>
+      <div class="bw s"><div class="bbl s">Sure, What time?</div></div>
     </div>
-    <div class="chat-input-bar">
-      <span class="cam-icon">📷</span>
-      <div class="input-field">iMessage</div>
-      <div class="send-btn" style="background:#8E8E93;">↑</div>
+    <div class="input-bar">
+      <span class="camico">📷</span>
+      <div class="ifield">iMessage</div>
+      <div class="send" style="background:#8E8E93;">↑</div>
     </div>
   </div>
 
 </div><!-- /phone -->
 
-<div class="info-bar" id="infoBar" style="display:none">
-  Room: <span id="roomDisplay">—</span> &nbsp;·&nbsp; State: <span id="stateDisplay">Waiting</span>
+<div class="info-bar" id="infoBar">
+  Room: <span id="roomDisp">—</span> &nbsp;·&nbsp; State: <span id="stateDisp">Waiting</span>
 </div>
 
 <script>
-  let room = null, channel = null, currentMech = null;
-  let currentScreen = 'waiting';
+  let mqttClient = null, topic = null;
 
   function joinSession() {
     const code = document.getElementById('joinInput').value.trim().toUpperCase();
     if (!code) { alert('Enter a room code'); return; }
-    room = 'hcs-' + code;
-    if (channel) channel.close();
-    channel = new BroadcastChannel(room);
-    channel.onmessage = e => handleMsg(e.data);
-    window.addEventListener('storage', onStorage);
-    document.getElementById('joinScreen').style.display = 'none';
-    document.getElementById('infoBar').style.display = 'block';
-    document.getElementById('roomDisplay').textContent = code;
-    // Tell FC we're ready
-    send({ type: 'participant-ready' });
-  }
 
-  function onStorage(e) {
-    if (e.key === room + '-msg' && e.newValue) try { handleMsg(JSON.parse(e.newValue)); } catch(err){}
+    topic = 'hcs-study/' + code;
+    setJDot('connecting');
+    setJLabel('Connecting...');
+    document.getElementById('joinBtn').disabled = true;
+
+    if (mqttClient) { try { mqttClient.end(true); } catch(e){} }
+
+    mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+      clientId: 'participant-' + Math.random().toString(36).substr(2,9),
+      clean: true,
+      reconnectPeriod: 3000,
+      connectTimeout: 10000,
+    });
+
+    mqttClient.on('connect', () => {
+      mqttClient.subscribe(topic);
+      setJDot('ok');
+      setJLabel('Connected ✓ — waiting for researcher...');
+      // Short delay then hide join screen
+      setTimeout(() => {
+        document.getElementById('joinScreen').style.display = 'none';
+        document.getElementById('infoBar').style.display = 'block';
+        document.getElementById('roomDisp').textContent = code;
+      }, 800);
+      // Announce to FC
+      publish({ type: 'participant-ready' });
+    });
+
+    mqttClient.on('error', err => {
+      setJDot('err');
+      setJLabel('Connection failed — check internet');
+      document.getElementById('joinBtn').disabled = false;
+    });
+
+    mqttClient.on('offline', () => {
+      setJDot('connecting');
+      setJLabel('Reconnecting...');
+    });
+
+    mqttClient.on('message', (t, payload) => {
+      try {
+        const data = JSON.parse(payload.toString());
+        if (data.from !== 'fc') return; // only listen to FC
+        handleMsg(data);
+      } catch(e){}
+    });
   }
 
   function handleMsg(data) {
-    if (!data || data.type === 'participant-ready') return;
-
-    if (data.type === 'fc-ready') {
-      // FC reconnected, nothing to do
-    } else if (data.type === 'select') {
-      currentMech = data.mech;
+    if (data.type === 'select') {
       resetAll();
-      if (data.mech === 'm1' || data.mech === 'm2') {
-        goToScreen('chatlist');
-      } else if (data.mech === 'm3') {
-        goToScreen('m3-idle');
-      }
-      setStatus('Ready — ' + data.mech.toUpperCase());
+      if (data.mech === 'm1' || data.mech === 'm2') goTo('chatlist');
+      else if (data.mech === 'm3') goTo('m3-idle');
+      setState('Ready — ' + data.mech.toUpperCase());
     } else if (data.type === 'activate') {
-      activateMech(data.mech);
-      setStatus('🟢 ACTIVE');
+      activate(data.mech);
+      setState('🟢 ACTIVE');
     } else if (data.type === 'deactivate') {
-      deactivateMech(data.mech);
-      setStatus('Idle');
+      deactivate(data.mech);
+      setState('Idle');
     } else if (data.type === 'screen') {
-      goToScreen(data.screen);
+      goTo(data.screen);
     }
   }
 
-  function activateMech(mech) {
+  function activate(mech) {
     if (mech === 'm1') {
       document.getElementById('alertIcon').classList.add('show');
       document.getElementById('alertIcon').classList.remove('pulse');
     } else if (mech === 'm2') {
-      document.getElementById('borderFlash').className = 'border-flash on';
+      document.getElementById('borderFlash').className = 'on';
     } else if (mech === 'm3') {
       document.getElementById('camThumb').classList.add('show');
     }
   }
 
-  function deactivateMech(mech) {
+  function deactivate(mech) {
     if (mech === 'm1') {
-      document.getElementById('alertIcon').classList.remove('show', 'pulse');
+      document.getElementById('alertIcon').classList.remove('show','pulse');
     } else if (mech === 'm2') {
-      document.getElementById('borderFlash').className = 'border-flash';
+      document.getElementById('borderFlash').className = '';
     } else if (mech === 'm3') {
       document.getElementById('camThumb').classList.remove('show');
     }
   }
 
   function resetAll() {
-    document.getElementById('alertIcon').classList.remove('show', 'pulse');
-    document.getElementById('borderFlash').className = 'border-flash';
+    document.getElementById('alertIcon').classList.remove('show','pulse');
+    document.getElementById('borderFlash').className = '';
     document.getElementById('camThumb').classList.remove('show');
   }
 
-  function goToScreen(name) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'pop-in'));
+  function goTo(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active','pop'));
     const el = document.getElementById('screen-' + name);
-    if (el) { el.classList.add('active', 'pop-in'); currentScreen = name; }
+    if (el) { el.classList.add('active','pop'); }
   }
 
-  function setStatus(s) {
-    document.getElementById('stateDisplay').textContent = s;
-  }
+  function setState(s) { document.getElementById('stateDisp').textContent = s; }
+  function setJDot(s) { document.getElementById('jDot').className = 'j-dot ' + s; }
+  function setJLabel(t) { document.getElementById('jLabel').textContent = t; }
 
-  function send(data) {
-    const payload = { ...data, room, _t: Date.now() };
-    if (channel) channel.postMessage(payload);
-    localStorage.setItem(room + '-msg', JSON.stringify(payload));
+  function publish(data) {
+    if (!mqttClient || !topic) return;
+    mqttClient.publish(topic, JSON.stringify({ ...data, from: 'participant', _t: Date.now() }));
   }
 </script>
 </body>
