@@ -2,482 +2,434 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Participant Display</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HCS Study — Participant</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
   body {
-    background: #000;
+    background: #1a1a1a;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     min-height: 100vh;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-    overflow: hidden;
+    font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    padding: 20px 0 80px;
   }
 
-  /* Connection Screen */
-  #connectScreen {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
+  /* ── Join Screen ── */
+  #joinScreen {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #111;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
     padding: 32px;
-    background: #0a0a0a;
-    width: 100%;
+    gap: 20px;
   }
-
-  .connect-logo {
-    font-size: 48px;
-    margin-bottom: 24px;
-  }
-
-  .connect-title {
-    font-size: 20px;
-    font-weight: 700;
-    color: #fff;
-    margin-bottom: 8px;
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .connect-sub {
-    font-size: 13px;
-    color: #555;
-    margin-bottom: 40px;
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .connect-input {
-    background: rgba(255,255,255,0.06);
+  .join-title { color: #fff; font-size: 26px; font-weight: 700; text-align: center; letter-spacing: -0.5px; }
+  .join-sub { color: rgba(255,255,255,0.4); font-size: 14px; text-align: center; }
+  .join-input {
+    width: 100%; max-width: 300px;
+    background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.15);
     border-radius: 12px;
-    padding: 16px 24px;
+    padding: 16px 20px;
     color: #fff;
-    font-size: 24px;
+    font-size: 28px;
+    font-weight: 700;
     letter-spacing: 8px;
     text-align: center;
-    width: 100%;
-    max-width: 280px;
-    outline: none;
-    font-family: 'JetBrains Mono', monospace;
     text-transform: uppercase;
-    margin-bottom: 16px;
+    outline: none;
   }
-
-  .connect-input:focus { border-color: #007AFF; }
-
-  .connect-btn {
-    background: #007AFF;
-    color: #fff;
-    border: none;
-    border-radius: 12px;
-    padding: 16px 48px;
-    font-size: 16px;
-    font-weight: 600;
+  .join-input::placeholder { color: rgba(255,255,255,0.2); letter-spacing: 2px; font-size: 16px; font-weight: 400; }
+  .join-btn {
+    width: 100%; max-width: 300px;
+    background: #F59E0B; color: #000;
+    border: none; border-radius: 12px;
+    padding: 16px; font-size: 17px; font-weight: 700;
     cursor: pointer;
-    width: 100%;
-    max-width: 280px;
-    font-family: -apple-system, sans-serif;
   }
+  .join-status { color: rgba(255,255,255,0.4); font-size: 13px; }
 
-  /* Phone Frame */
-  #phoneScreen {
-    display: none;
-    width: 100%;
-    max-width: 390px;
-    height: 100vh;
-    position: relative;
-    overflow: hidden;
-    background: #000;
-  }
-
-  /* Mechanism overlays */
-  .mechanism-overlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 100;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    overflow: hidden;
-  }
-
-  .mechanism-overlay.active { opacity: 1; }
-
-  /* M1 - Alert Icon */
-  #alertIcon {
-    position: absolute;
-    top: 60px;
-    right: 16px;
-    width: 48px;
-    height: 48px;
-    background: #F59E0B;
-    border-radius: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    font-weight: 900;
-    color: white;
-    box-shadow: 0 0 20px rgba(245, 158, 11, 0.6);
-    animation: pulse-icon 800ms ease-in-out infinite;
-  }
-
-  @keyframes pulse-icon {
-    0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 20px rgba(245,158,11,0.6); }
-    50% { transform: scale(1.05); opacity: 0.7; box-shadow: 0 0 8px rgba(245,158,11,0.3); }
-  }
-
-  /* M2 - Flashing Border */
-  #flashBorder {
-    position: absolute;
-    inset: 0;
-    border: 4px solid #DC2626;
-    border-radius: 0;
-    box-shadow: inset 0 0 20px rgba(220, 38, 38, 0.3);
-    animation: flash-border 600ms ease-in-out infinite;
-  }
-
-  @keyframes flash-border {
-    0%, 100% { opacity: 1; border-color: #DC2626; box-shadow: inset 0 0 20px rgba(220,38,38,0.3); }
-    50% { opacity: 0.4; border-color: #EA580C; box-shadow: inset 0 0 8px rgba(220,38,38,0.1); }
-  }
-
-  /* M3 - Camera Preview */
-  #cameraPreview {
-    position: absolute;
-    bottom: 100px;
-    right: 16px;
-    width: 120px;
-    height: 160px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 2px solid #fff;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-  }
-
-  .camera-feed {
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(135deg, #4A4A4A, #2C2C2C);
-    position: relative;
-    filter: blur(1px);
-  }
-
-  .camera-silhouette {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 8px;
-    align-items: flex-end;
-  }
-
-  .silhouette-person {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-  }
-
-  .sil-head {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #5a5a5a;
-  }
-
-  .sil-body {
-    width: 18px;
-    height: 28px;
-    background: #5a5a5a;
-    border-radius: 4px 4px 0 0;
-  }
-
-  .gaze-ring {
-    position: absolute;
-    width: 32px;
-    height: 32px;
-    border: 3px solid #F59E0B;
-    border-radius: 50%;
-    top: 28px;
-    left: 16px;
-    animation: gaze-pulse 1000ms ease-in-out infinite;
-  }
-
-  @keyframes gaze-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
-
-  .threat-label {
-    position: absolute;
-    bottom: 104px;
-    right: 16px;
-    font-size: 10px;
-    font-weight: 700;
-    color: #F59E0B;
-    letter-spacing: 0.5px;
-  }
-
-  /* Figma Embed */
-  #figmaEmbed {
-    width: 100%;
-    height: 100%;
-    border: none;
-    display: block;
-  }
-
-  .phone-status {
-    background: #F2F2F7;
-    padding: 14px 24px 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 15px;
-    font-weight: 600;
-  }
-
-  .phone-status-right {
-    display: flex;
-    gap: 6px;
-    font-size: 12px;
-    color: #1C1C1E;
-  }
-
-  .chat-header {
+  /* ── Phone Shell ── */
+  .phone {
+    width: 390px;
+    height: 844px;
     background: #fff;
-    padding: 12px 24px;
-    border-bottom: 1px solid #E5E5EA;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .chat-header-title {
-    font-size: 17px;
-    font-weight: 600;
-    color: #1C1C1E;
-  }
-
-  .chat-header-edit {
-    font-size: 17px;
-    color: #007AFF;
-  }
-
-  .search-bar {
-    margin: 8px 16px;
-    background: #E5E5EA;
-    border-radius: 10px;
-    padding: 8px 16px;
-    font-size: 15px;
-    color: #8E8E93;
-  }
-
-  .chat-list { flex: 1; background: #fff; overflow-y: auto; }
-
-  .chat-row {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
-    border-bottom: 1px solid #F2F2F7;
-    gap: 12px;
-  }
-
-  .avatar {
-    width: 50px;
-    height: 50px;
-    border-radius: 25px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 17px;
-    font-weight: 700;
-    color: #fff;
+    border-radius: 48px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 0 0 2px #333, 0 0 0 4px #1a1a1a, 0 40px 80px rgba(0,0,0,0.7);
     flex-shrink: 0;
   }
 
-  .chat-info { flex: 1; }
-  .chat-name { font-size: 16px; font-weight: 600; color: #1C1C1E; }
-  .chat-msg { font-size: 14px; color: #8E8E93; margin-top: 2px; }
+  /* ── Screens ── */
+  .screen { position:absolute; inset:0; background:#F2F2F7; display:none; flex-direction:column; }
+  .screen.active { display:flex; }
 
-  .chat-meta { text-align: right; }
-  .chat-time { font-size: 12px; color: #8E8E93; }
+  /* Status Bar */
+  .status-bar { height:50px; background:#fff; display:flex; align-items:center; justify-content:space-between; padding:0 20px; flex-shrink:0; }
+  .status-time { font-size:15px; font-weight:600; color:#1C1C1E; }
+  .status-icons { font-size:13px; color:#1C1C1E; }
+  .status-bar.dark { background:#F2F2F7; }
 
-  .badge-dot {
-    width: 20px;
-    height: 20px;
-    background: #007AFF;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  /* Nav */
+  .nav-header { height:52px; background:#fff; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #E5E5EA; flex-shrink:0; }
+  .nav-back { color:#007AFF; font-size:17px; cursor:pointer; }
+  .nav-title { font-size:17px; font-weight:600; color:#1C1C1E; }
+  .nav-action { color:#007AFF; font-size:17px; }
+
+  /* Search */
+  .search-bar { margin:8px 16px; background:#E5E5EA; border-radius:10px; padding:8px 12px; display:flex; align-items:center; gap:6px; flex-shrink:0; color:#8E8E93; font-size:15px; }
+
+  /* Chat List */
+  .chat-list { flex:1; overflow:hidden; background:#fff; }
+  .chat-row { display:flex; align-items:center; padding:12px 16px; border-bottom:1px solid #F2F2F7; gap:12px; }
+  .avatar { width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700; color:#fff; flex-shrink:0; }
+  .chat-info { flex:1; min-width:0; }
+  .chat-name { font-size:17px; font-weight:600; color:#1C1C1E; }
+  .chat-preview { font-size:15px; color:#8E8E93; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+  .chat-meta { display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
+  .chat-time { font-size:13px; color:#8E8E93; }
+  .badge { background:#007AFF; color:#fff; border-radius:50%; width:22px; height:22px; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+
+  /* Bottom Nav */
+  .bottom-nav { height:83px; background:#fff; border-top:1px solid #E5E5EA; display:flex; align-items:flex-start; justify-content:space-around; padding-top:10px; flex-shrink:0; }
+  .nav-item { display:flex; flex-direction:column; align-items:center; gap:4px; font-size:10px; color:#8E8E93; }
+  .nav-item.active { color:#007AFF; }
+  .nav-icon { font-size:22px; }
+
+  /* M1 Alert Icon */
+  .alert-icon {
+    position:absolute; top:95px; right:16px;
+    width:48px; height:48px; border-radius:50%;
+    background:#F59E0B; display:none; align-items:center; justify-content:center;
+    font-size:24px; font-weight:700; color:#fff;
+    box-shadow:0 0 16px rgba(245,158,11,0.6);
+    z-index:10; cursor:pointer;
+    animation: alertAppear 0.3s ease-out;
+  }
+  .alert-icon.show { display:flex; }
+  .alert-icon.pulse { animation:alertPulse 0.8s ease-in-out infinite; }
+  @keyframes alertAppear { from{opacity:0;transform:scale(0.5)} to{opacity:1;transform:scale(1)} }
+  @keyframes alertPulse { 0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 16px rgba(245,158,11,0.6)} 50%{opacity:0.6;transform:scale(0.9);box-shadow:0 0 24px rgba(245,158,11,0.9)} }
+
+  /* M2 Flashing Border */
+  .border-flash {
+    position:absolute; inset:0; pointer-events:none; z-index:20; border-radius:48px;
+  }
+  .border-flash.on {
+    animation:borderAnim 0.6s ease-in-out infinite;
+  }
+  @keyframes borderAnim {
+    0%,100% { box-shadow:inset 0 0 0 4px #DC2626, inset 0 0 24px rgba(220,38,38,0.45); }
+    50% { box-shadow:inset 0 0 0 4px rgba(220,38,38,0.35), inset 0 0 8px rgba(220,38,38,0.1); }
+  }
+
+  /* Chat Screen */
+  .chat-screen { background:#F2F2F7; }
+  .chat-header { height:52px; background:rgba(242,242,247,0.95); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #E5E5EA; flex-shrink:0; }
+  .messages-area { flex:1; padding:16px; overflow:hidden; display:flex; flex-direction:column; gap:8px; }
+  .timestamp-row { text-align:center; color:#8E8E93; font-size:13px; margin:8px 0; }
+  .bubble-wrap { display:flex; align-items:flex-end; gap:8px; }
+  .bubble-wrap.sent { justify-content:flex-end; }
+  .bubble { max-width:220px; padding:10px 14px; border-radius:20px; font-size:17px; line-height:1.3; }
+  .bubble.received { background:#E5E5EA; color:#1C1C1E; border-bottom-left-radius:4px; }
+  .bubble.sent { background:#007AFF; color:#fff; border-bottom-right-radius:4px; }
+  .chat-input-bar { height:83px; background:#fff; border-top:1px solid #E5E5EA; display:flex; align-items:center; padding:12px 16px; gap:10px; flex-shrink:0; cursor:pointer; }
+  .input-field { flex:1; background:#F2F2F7; border:1px solid #E5E5EA; border-radius:20px; padding:10px 16px; font-size:17px; color:#8E8E93; }
+  .input-field.typed { color:#1C1C1E; }
+  .send-btn { width:32px; height:32px; background:#007AFF; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; cursor:pointer; flex-shrink:0; }
+  .cam-icon { font-size:22px; cursor:pointer; color:#8E8E93; }
+
+  /* M3 Camera preview */
+  .camera-thumb {
+    position:absolute; bottom:100px; right:16px;
+    width:120px; height:160px;
+    background:linear-gradient(180deg,#4A4A4A 0%,#2C2C2C 100%);
+    border-radius:12px; border:2px solid #fff;
+    overflow:visible; z-index:10; display:none;
+    flex-direction:column; align-items:center; justify-content:flex-end;
+    padding-bottom:12px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.5);
+    animation:camAppear 0.4s ease-out;
+  }
+  .camera-thumb.show { display:flex; }
+  @keyframes camAppear { from{opacity:0;transform:scale(0.8) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
+  .threat-label { position:absolute; top:-22px; left:50%; transform:translateX(-50%); white-space:nowrap; color:#F59E0B; font-size:11px; font-weight:600; display:flex; align-items:center; gap:3px; }
+  .silhouettes { display:flex; gap:8px; align-items:flex-end; }
+  .silhouette { display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .sil-head { width:22px; height:22px; border-radius:50%; background:#5a5a5a; }
+  .sil-head.threat { border:2px solid #F59E0B; animation:gazeRing 1s ease-in-out infinite; }
+  @keyframes gazeRing { 0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0.7)} 50%{box-shadow:0 0 0 5px rgba(245,158,11,0.1)} }
+  .sil-body { width:28px; height:36px; border-radius:6px 6px 0 0; background:#5a5a5a; }
+
+  /* Transition animation */
+  .screen.pop-in { animation:popIn 0.25s ease-out; }
+  @keyframes popIn { from{opacity:0;transform:scale(0.98)} to{opacity:1;transform:scale(1)} }
+
+  /* Bottom info bar */
+  .info-bar {
+    margin-top: 16px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 10px 16px;
     font-size: 12px;
-    font-weight: 700;
-    color: #fff;
-    margin-top: 4px;
-    margin-left: auto;
-  }
-
-  .bottom-nav {
-    background: #fff;
-    border-top: 1px solid #E5E5EA;
-    padding: 12px 24px 20px;
-    display: flex;
-    justify-content: space-around;
-  }
-
-  .nav-item { font-size: 11px; color: #8E8E93; text-align: center; }
-  .nav-item.active { color: #007AFF; }
-
-  /* Mechanism indicator for participant */
-  #mechanismName {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    background: rgba(0,0,0,0.7);
-    color: #fff;
+    color: rgba(255,255,255,0.4);
     text-align: center;
-    font-size: 11px;
-    padding: 4px;
-    opacity: 0;
-    transition: opacity 0.3s;
-    z-index: 200;
-    font-family: monospace;
+    width: 390px;
   }
+  .info-bar span { color: rgba(255,255,255,0.7); font-weight: 600; }
 </style>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
 
-<!-- Connection Screen -->
-<div id="connectScreen">
-  <div class="connect-logo">📱</div>
-  <div class="connect-title">Participant Display</div>
-  <div class="connect-sub">Enter the session room code</div>
-  <input type="text" class="connect-input" id="roomInput" placeholder="CODE" maxlength="6" />
-  <button class="connect-btn" onclick="connectToRoom()">Connect to Session</button>
+<!-- ── Join Screen ── -->
+<div id="joinScreen">
+  <div style="font-size:48px">📱</div>
+  <div class="join-title">HCS Study<br>Participant Display</div>
+  <div class="join-sub">Enter the room code given by the researcher</div>
+  <input class="join-input" id="joinInput" placeholder="CODE" maxlength="8" oninput="this.value=this.value.toUpperCase()">
+  <button class="join-btn" onclick="joinSession()">Join Session</button>
+  <div class="join-status" id="joinStatus">University of Glasgow · HCS</div>
 </div>
 
-<!-- Phone Screen -->
-<div id="phoneScreen">
+<!-- ── Phone ── -->
+<div class="phone" id="phone">
 
-  <!-- Figma Prototype Embed -->
-  <iframe 
-    id="figmaEmbed"
-    src="https://www.figma.com/embed?embed_host=share&url=https://www.figma.com/proto/s0AuDqAsi3AOaDzjihI0Sx/HCS-Shoulder-Surfing-Prototype?page-id=1%3A5%26node-id=71-370%26p=f%26viewport=389%2C238%2C0.21%26t=u0hB6TH3zv8bfOGQ-1%26scaling=scale-down%26content-scaling=fixed%26starting-point-node-id=71%3A370"
-    allowfullscreen
-  ></iframe>
+  <!-- M2 Border Overlay -->
+  <div class="border-flash" id="borderFlash"></div>
 
-  <!-- Mechanism Overlays -->
-  <div class="mechanism-overlay" id="overlay-m1">
-    <div id="alertIcon">!</div>
-  </div>
-
-  <div class="mechanism-overlay" id="overlay-m2">
-    <div id="flashBorder"></div>
-  </div>
-
-  <div class="mechanism-overlay" id="overlay-m3">
-    <div class="threat-label">👁 Threat detected</div>
-    <div id="cameraPreview">
-      <div class="camera-feed">
-        <div class="camera-silhouette">
-          <div class="silhouette-person">
-            <div class="sil-head"></div>
-            <div class="sil-body"></div>
-          </div>
-          <div class="silhouette-person">
-            <div class="sil-head" style="width:16px;height:16px"></div>
-            <div class="sil-body" style="width:14px;height:22px"></div>
-          </div>
-        </div>
-        <div class="gaze-ring"></div>
-      </div>
+  <!-- ════════════════════════════════ -->
+  <!-- SCREEN: Waiting                 -->
+  <!-- ════════════════════════════════ -->
+  <div class="screen active" id="screen-waiting">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px;text-align:center;">
+      <div style="font-size:48px">⏳</div>
+      <div style="font-size:18px;font-weight:700;color:#1C1C1E;">Waiting for researcher</div>
+      <div style="font-size:14px;color:#8E8E93;">The study will begin shortly</div>
     </div>
   </div>
 
+  <!-- ════════════════════════════════ -->
+  <!-- SCREEN: M1 / M2 — Chat List    -->
+  <!-- ════════════════════════════════ -->
+  <div class="screen" id="screen-chatlist">
+    <div class="status-bar">
+      <span class="status-time">09:41</span>
+      <span class="status-icons">●●● WiFi 100%</span>
+    </div>
+    <div class="nav-header">
+      <span class="nav-back"></span>
+      <span class="nav-title">Messages</span>
+      <span class="nav-action">Edit</span>
+    </div>
+    <div class="search-bar">🔍 Search</div>
+    <div class="chat-list">
+      <div class="chat-row"><div class="avatar" style="background:#007AFF">SJ</div><div class="chat-info"><div class="chat-name">Sarah Johnson</div><div class="chat-preview">Are you coming tonight?</div></div><div class="chat-meta"><span class="chat-time">2m ago</span><span class="badge">2</span></div></div>
+      <div class="chat-row"><div class="avatar" style="background:#34C759">MK</div><div class="chat-info"><div class="chat-name">Mike Khan</div><div class="chat-preview">I sent you the files</div></div><div class="chat-meta"><span class="chat-time">15m ago</span></div></div>
+      <div class="chat-row"><div class="avatar" style="background:#F59E0B">AL</div><div class="chat-info"><div class="chat-name">Amy Lee</div><div class="chat-preview">Haha yes exactly 😂</div></div><div class="chat-meta"><span class="chat-time">1h ago</span></div></div>
+      <div class="chat-row"><div class="avatar" style="background:#DC2626">TR</div><div class="chat-info"><div class="chat-name">Tom Richards</div><div class="chat-preview">Let me know when you're free.</div></div><div class="chat-meta"><span class="chat-time">2h ago</span><span class="badge">1</span></div></div>
+      <div class="chat-row"><div class="avatar" style="background:#8E8E93">JB</div><div class="chat-info"><div class="chat-name">James Brown</div><div class="chat-preview">Thanks for earlier!</div></div><div class="chat-meta"><span class="chat-time">3h ago</span></div></div>
+    </div>
+    <!-- M1 Alert Icon -->
+    <div class="alert-icon" id="alertIcon" onclick="this.classList.toggle('pulse')">!</div>
+    <div class="bottom-nav">
+      <div class="nav-item active"><div class="nav-icon">💬</div><span>Chats</span></div>
+      <div class="nav-item"><div class="nav-icon">📞</div><span>Calls</span></div>
+      <div class="nav-item"><div class="nav-icon">🔵</div><span>Stories</span></div>
+      <div class="nav-item"><div class="nav-icon">⚙️</div><span>Settings</span></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════ -->
+  <!-- SCREEN: M3 Idle — Chat Sarah    -->
+  <!-- ════════════════════════════════ -->
+  <div class="screen chat-screen" id="screen-m3-idle">
+    <div class="status-bar dark">
+      <span class="status-time">09:41</span>
+      <span class="status-icons">●●● WiFi 100%</span>
+    </div>
+    <div class="chat-header">
+      <span class="nav-back" style="color:#007AFF">‹ Back</span>
+      <span class="nav-title">Sarah Johnson</span>
+      <span>📞</span>
+    </div>
+    <div style="position:absolute;top:115px;right:16px;font-size:20px;z-index:5;background:#E5E5EA;border-radius:8px;padding:4px 6px;">📷</div>
+    <div class="messages-area">
+      <div class="bubble-wrap received"><div class="bubble received">Hey!</div></div>
+      <div class="bubble-wrap received"><div class="bubble received">Are you coming tonight?</div></div>
+      <div class="timestamp-row">Today 7:42 PM</div>
+      <div class="bubble-wrap sent"><div class="bubble sent">Hello!</div></div>
+      <div class="bubble-wrap sent"><div class="bubble sent">What time?</div></div>
+    </div>
+    <div class="chat-input-bar" id="m3IdleInput" onclick="goToScreen('m3-reply')">
+      <span class="cam-icon">📷</span>
+      <div class="input-field">iMessage</div>
+      <span style="font-size:22px;color:#8E8E93;">🎤</span>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════ -->
+  <!-- SCREEN: M3 Reply                -->
+  <!-- ════════════════════════════════ -->
+  <div class="screen chat-screen" id="screen-m3-reply">
+    <div class="status-bar dark">
+      <span class="status-time">09:41</span>
+      <span class="status-icons">●●● WiFi 100%</span>
+    </div>
+    <div class="chat-header">
+      <span class="nav-back" style="color:#007AFF" onclick="goToScreen('m3-idle')">‹ Back</span>
+      <span class="nav-title">Sarah Johnson</span>
+      <span>📞</span>
+    </div>
+    <div class="messages-area">
+      <div class="bubble-wrap received"><div class="bubble received">Hey!</div></div>
+      <div class="bubble-wrap received"><div class="bubble received">Are you coming tonight?</div></div>
+      <div class="timestamp-row">Today 7:42 PM</div>
+      <div class="bubble-wrap sent"><div class="bubble sent">Hello!</div></div>
+    </div>
+    <div class="chat-input-bar">
+      <span class="cam-icon">📷</span>
+      <div class="input-field typed">Sure, What time?</div>
+      <div class="send-btn" onclick="goToScreen('m3-sent')">↑</div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════ -->
+  <!-- SCREEN: M3 Sent                 -->
+  <!-- ════════════════════════════════ -->
+  <div class="screen chat-screen" id="screen-m3-sent">
+    <div class="status-bar dark">
+      <span class="status-time">09:41</span>
+      <span class="status-icons">●●● WiFi 100%</span>
+    </div>
+    <div class="chat-header">
+      <span class="nav-back" style="color:#007AFF" onclick="goToScreen('m3-idle')">‹ Back</span>
+      <span class="nav-title">Sarah Johnson</span>
+      <span>📞</span>
+    </div>
+    <!-- Camera preview (shown when FC activates) -->
+    <div class="camera-thumb" id="camThumb">
+      <span class="threat-label">👁 Threat detected</span>
+      <div class="silhouettes">
+        <div class="silhouette"><div class="sil-head threat"></div><div class="sil-body"></div></div>
+        <div class="silhouette"><div class="sil-head"></div><div class="sil-body"></div></div>
+      </div>
+    </div>
+    <div class="messages-area">
+      <div class="bubble-wrap received"><div class="bubble received">Hey!</div></div>
+      <div class="bubble-wrap received"><div class="bubble received">Are you coming tonight?</div></div>
+      <div class="timestamp-row">Today 7:42 PM</div>
+      <div class="bubble-wrap sent"><div class="bubble sent">Hello!</div></div>
+      <div class="bubble-wrap sent"><div class="bubble sent">Sure, What time?</div></div>
+    </div>
+    <div class="chat-input-bar">
+      <span class="cam-icon">📷</span>
+      <div class="input-field">iMessage</div>
+      <div class="send-btn" style="background:#8E8E93;">↑</div>
+    </div>
+  </div>
+
+</div><!-- /phone -->
+
+<div class="info-bar" id="infoBar" style="display:none">
+  Room: <span id="roomDisplay">—</span> &nbsp;·&nbsp; State: <span id="stateDisplay">Waiting</span>
 </div>
 
 <script>
-  let roomCode = '';
-  let currentMechanism = 1;
+  let room = null, channel = null, currentMech = null;
+  let currentScreen = 'waiting';
 
-  function connectToRoom() {
-    roomCode = document.getElementById('roomInput').value.trim().toUpperCase();
-    if (!roomCode) { alert('Please enter the room code'); return; }
-
-    setupConnection();
-    document.getElementById('connectScreen').style.display = 'none';
-    document.getElementById('phoneScreen').style.display = 'block';
-
-    // Notify FC
-    sendMessage({type: 'participant_joined'});
+  function joinSession() {
+    const code = document.getElementById('joinInput').value.trim().toUpperCase();
+    if (!code) { alert('Enter a room code'); return; }
+    room = 'hcs-' + code;
+    if (channel) channel.close();
+    channel = new BroadcastChannel(room);
+    channel.onmessage = e => handleMsg(e.data);
+    window.addEventListener('storage', onStorage);
+    document.getElementById('joinScreen').style.display = 'none';
+    document.getElementById('infoBar').style.display = 'block';
+    document.getElementById('roomDisplay').textContent = code;
+    // Tell FC we're ready
+    send({ type: 'participant-ready' });
   }
 
-  function setupConnection() {
-    try {
-      window.channel = new BroadcastChannel(`hcs_${roomCode}`);
-      window.channel.onmessage = (e) => handleMessage(e.data);
-    } catch(e) {
-      setupLocalStorageFallback();
-    }
+  function onStorage(e) {
+    if (e.key === room + '-msg' && e.newValue) try { handleMsg(JSON.parse(e.newValue)); } catch(err){}
   }
 
-  function setupLocalStorageFallback() {
-    let lastTs = 0;
-    window.pollInterval = setInterval(() => {
-      const msg = localStorage.getItem(`hcs_${roomCode}_msg`);
-      const ts = parseInt(localStorage.getItem(`hcs_${roomCode}_ts`) || '0');
-      if (msg && ts > lastTs) {
-        lastTs = ts;
-        handleMessage(JSON.parse(msg));
+  function handleMsg(data) {
+    if (!data || data.type === 'participant-ready') return;
+
+    if (data.type === 'fc-ready') {
+      // FC reconnected, nothing to do
+    } else if (data.type === 'select') {
+      currentMech = data.mech;
+      resetAll();
+      if (data.mech === 'm1' || data.mech === 'm2') {
+        goToScreen('chatlist');
+      } else if (data.mech === 'm3') {
+        goToScreen('m3-idle');
       }
-    }, 200);
-  }
-
-  function sendMessage(data) {
-    const msg = {...data, room: roomCode, from: 'participant'};
-    if (window.channel) window.channel.postMessage(msg);
-    localStorage.setItem(`hcs_${roomCode}_incoming`, JSON.stringify(msg));
-  }
-
-  function handleMessage(data) {
-    if (data.from !== 'fc') return;
-
-    if (data.type === 'mechanism') {
-      currentMechanism = data.value;
-      deactivateAll();
-    }
-
-    if (data.type === 'trigger') {
-      if (data.action === 'activate') {
-        activateMechanism(data.mechanism);
-      } else {
-        deactivateAll();
-      }
+      setStatus('Ready — ' + data.mech.toUpperCase());
+    } else if (data.type === 'activate') {
+      activateMech(data.mech);
+      setStatus('🟢 ACTIVE');
+    } else if (data.type === 'deactivate') {
+      deactivateMech(data.mech);
+      setStatus('Idle');
+    } else if (data.type === 'screen') {
+      goToScreen(data.screen);
     }
   }
 
-  function activateMechanism(n) {
-    deactivateAll();
-    const overlay = document.getElementById(`overlay-m${n}`);
-    if (overlay) overlay.classList.add('active');
+  function activateMech(mech) {
+    if (mech === 'm1') {
+      document.getElementById('alertIcon').classList.add('show');
+      document.getElementById('alertIcon').classList.remove('pulse');
+    } else if (mech === 'm2') {
+      document.getElementById('borderFlash').className = 'border-flash on';
+    } else if (mech === 'm3') {
+      document.getElementById('camThumb').classList.add('show');
+    }
   }
 
-  function deactivateAll() {
-    document.querySelectorAll('.mechanism-overlay').forEach(o => o.classList.remove('active'));
+  function deactivateMech(mech) {
+    if (mech === 'm1') {
+      document.getElementById('alertIcon').classList.remove('show', 'pulse');
+    } else if (mech === 'm2') {
+      document.getElementById('borderFlash').className = 'border-flash';
+    } else if (mech === 'm3') {
+      document.getElementById('camThumb').classList.remove('show');
+    }
   }
 
-  // Allow keyboard input for room code
-  document.getElementById('roomInput').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') connectToRoom();
-  });
+  function resetAll() {
+    document.getElementById('alertIcon').classList.remove('show', 'pulse');
+    document.getElementById('borderFlash').className = 'border-flash';
+    document.getElementById('camThumb').classList.remove('show');
+  }
+
+  function goToScreen(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'pop-in'));
+    const el = document.getElementById('screen-' + name);
+    if (el) { el.classList.add('active', 'pop-in'); currentScreen = name; }
+  }
+
+  function setStatus(s) {
+    document.getElementById('stateDisplay').textContent = s;
+  }
+
+  function send(data) {
+    const payload = { ...data, room, _t: Date.now() };
+    if (channel) channel.postMessage(payload);
+    localStorage.setItem(room + '-msg', JSON.stringify(payload));
+  }
 </script>
 </body>
 </html>
