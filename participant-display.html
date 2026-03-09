@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Participant Display</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    overflow: hidden;
+  }
+
+  /* Connection Screen */
+  #connectScreen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 32px;
+    background: #0a0a0a;
+    width: 100%;
+  }
+
+  .connect-logo {
+    font-size: 48px;
+    margin-bottom: 24px;
+  }
+
+  .connect-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .connect-sub {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 40px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .connect-input {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    padding: 16px 24px;
+    color: #fff;
+    font-size: 24px;
+    letter-spacing: 8px;
+    text-align: center;
+    width: 100%;
+    max-width: 280px;
+    outline: none;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .connect-input:focus { border-color: #007AFF; }
+
+  .connect-btn {
+    background: #007AFF;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 16px 48px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    max-width: 280px;
+    font-family: -apple-system, sans-serif;
+  }
+
+  /* Phone Frame */
+  #phoneScreen {
+    display: none;
+    width: 100%;
+    max-width: 390px;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Mechanism overlays */
+  .mechanism-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .mechanism-overlay.active { opacity: 1; }
+
+  /* M1 - Alert Icon */
+  #alertIcon {
+    position: absolute;
+    top: 60px;
+    right: 16px;
+    width: 48px;
+    height: 48px;
+    background: #F59E0B;
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 900;
+    color: white;
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.6);
+    animation: pulse-icon 800ms ease-in-out infinite;
+  }
+
+  @keyframes pulse-icon {
+    0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 20px rgba(245,158,11,0.6); }
+    50% { transform: scale(1.05); opacity: 0.7; box-shadow: 0 0 8px rgba(245,158,11,0.3); }
+  }
+
+  /* M2 - Flashing Border */
+  #flashBorder {
+    position: absolute;
+    inset: 0;
+    border: 4px solid #DC2626;
+    border-radius: 0;
+    box-shadow: inset 0 0 20px rgba(220, 38, 38, 0.3);
+    animation: flash-border 600ms ease-in-out infinite;
+  }
+
+  @keyframes flash-border {
+    0%, 100% { opacity: 1; border-color: #DC2626; box-shadow: inset 0 0 20px rgba(220,38,38,0.3); }
+    50% { opacity: 0.4; border-color: #EA580C; box-shadow: inset 0 0 8px rgba(220,38,38,0.1); }
+  }
+
+  /* M3 - Camera Preview */
+  #cameraPreview {
+    position: absolute;
+    bottom: 100px;
+    right: 16px;
+    width: 120px;
+    height: 160px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #fff;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+
+  .camera-feed {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #4A4A4A, #2C2C2C);
+    position: relative;
+    filter: blur(1px);
+  }
+
+  .camera-silhouette {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .silhouette-person {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .sil-head {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #5a5a5a;
+  }
+
+  .sil-body {
+    width: 18px;
+    height: 28px;
+    background: #5a5a5a;
+    border-radius: 4px 4px 0 0;
+  }
+
+  .gaze-ring {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    border: 3px solid #F59E0B;
+    border-radius: 50%;
+    top: 28px;
+    left: 16px;
+    animation: gaze-pulse 1000ms ease-in-out infinite;
+  }
+
+  @keyframes gaze-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .threat-label {
+    position: absolute;
+    bottom: 104px;
+    right: 16px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #F59E0B;
+    letter-spacing: 0.5px;
+  }
+
+  /* Figma Embed */
+  #figmaEmbed {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+  }
+
+  .phone-status {
+    background: #F2F2F7;
+    padding: 14px 24px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .phone-status-right {
+    display: flex;
+    gap: 6px;
+    font-size: 12px;
+    color: #1C1C1E;
+  }
+
+  .chat-header {
+    background: #fff;
+    padding: 12px 24px;
+    border-bottom: 1px solid #E5E5EA;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .chat-header-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: #1C1C1E;
+  }
+
+  .chat-header-edit {
+    font-size: 17px;
+    color: #007AFF;
+  }
+
+  .search-bar {
+    margin: 8px 16px;
+    background: #E5E5EA;
+    border-radius: 10px;
+    padding: 8px 16px;
+    font-size: 15px;
+    color: #8E8E93;
+  }
+
+  .chat-list { flex: 1; background: #fff; overflow-y: auto; }
+
+  .chat-row {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #F2F2F7;
+    gap: 12px;
+  }
+
+  .avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .chat-info { flex: 1; }
+  .chat-name { font-size: 16px; font-weight: 600; color: #1C1C1E; }
+  .chat-msg { font-size: 14px; color: #8E8E93; margin-top: 2px; }
+
+  .chat-meta { text-align: right; }
+  .chat-time { font-size: 12px; color: #8E8E93; }
+
+  .badge-dot {
+    width: 20px;
+    height: 20px;
+    background: #007AFF;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    margin-top: 4px;
+    margin-left: auto;
+  }
+
+  .bottom-nav {
+    background: #fff;
+    border-top: 1px solid #E5E5EA;
+    padding: 12px 24px 20px;
+    display: flex;
+    justify-content: space-around;
+  }
+
+  .nav-item { font-size: 11px; color: #8E8E93; text-align: center; }
+  .nav-item.active { color: #007AFF; }
+
+  /* Mechanism indicator for participant */
+  #mechanismName {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    text-align: center;
+    font-size: 11px;
+    padding: 4px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 200;
+    font-family: monospace;
+  }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- Connection Screen -->
+<div id="connectScreen">
+  <div class="connect-logo">📱</div>
+  <div class="connect-title">Participant Display</div>
+  <div class="connect-sub">Enter the session room code</div>
+  <input type="text" class="connect-input" id="roomInput" placeholder="CODE" maxlength="6" />
+  <button class="connect-btn" onclick="connectToRoom()">Connect to Session</button>
+</div>
+
+<!-- Phone Screen -->
+<div id="phoneScreen">
+
+  <!-- Figma Prototype Embed -->
+  <iframe 
+    id="figmaEmbed"
+    src="https://www.figma.com/embed?embed_host=share&url=https://www.figma.com/proto/s0AuDqAsi3AOaDzjihI0Sx/HCS-Shoulder-Surfing-Prototype?page-id=1%3A5%26node-id=71-370%26p=f%26viewport=389%2C238%2C0.21%26t=u0hB6TH3zv8bfOGQ-1%26scaling=scale-down%26content-scaling=fixed%26starting-point-node-id=71%3A370"
+    allowfullscreen
+  ></iframe>
+
+  <!-- Mechanism Overlays -->
+  <div class="mechanism-overlay" id="overlay-m1">
+    <div id="alertIcon">!</div>
+  </div>
+
+  <div class="mechanism-overlay" id="overlay-m2">
+    <div id="flashBorder"></div>
+  </div>
+
+  <div class="mechanism-overlay" id="overlay-m3">
+    <div class="threat-label">👁 Threat detected</div>
+    <div id="cameraPreview">
+      <div class="camera-feed">
+        <div class="camera-silhouette">
+          <div class="silhouette-person">
+            <div class="sil-head"></div>
+            <div class="sil-body"></div>
+          </div>
+          <div class="silhouette-person">
+            <div class="sil-head" style="width:16px;height:16px"></div>
+            <div class="sil-body" style="width:14px;height:22px"></div>
+          </div>
+        </div>
+        <div class="gaze-ring"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let roomCode = '';
+  let currentMechanism = 1;
+
+  function connectToRoom() {
+    roomCode = document.getElementById('roomInput').value.trim().toUpperCase();
+    if (!roomCode) { alert('Please enter the room code'); return; }
+
+    setupConnection();
+    document.getElementById('connectScreen').style.display = 'none';
+    document.getElementById('phoneScreen').style.display = 'block';
+
+    // Notify FC
+    sendMessage({type: 'participant_joined'});
+  }
+
+  function setupConnection() {
+    try {
+      window.channel = new BroadcastChannel(`hcs_${roomCode}`);
+      window.channel.onmessage = (e) => handleMessage(e.data);
+    } catch(e) {
+      setupLocalStorageFallback();
+    }
+  }
+
+  function setupLocalStorageFallback() {
+    let lastTs = 0;
+    window.pollInterval = setInterval(() => {
+      const msg = localStorage.getItem(`hcs_${roomCode}_msg`);
+      const ts = parseInt(localStorage.getItem(`hcs_${roomCode}_ts`) || '0');
+      if (msg && ts > lastTs) {
+        lastTs = ts;
+        handleMessage(JSON.parse(msg));
+      }
+    }, 200);
+  }
+
+  function sendMessage(data) {
+    const msg = {...data, room: roomCode, from: 'participant'};
+    if (window.channel) window.channel.postMessage(msg);
+    localStorage.setItem(`hcs_${roomCode}_incoming`, JSON.stringify(msg));
+  }
+
+  function handleMessage(data) {
+    if (data.from !== 'fc') return;
+
+    if (data.type === 'mechanism') {
+      currentMechanism = data.value;
+      deactivateAll();
+    }
+
+    if (data.type === 'trigger') {
+      if (data.action === 'activate') {
+        activateMechanism(data.mechanism);
+      } else {
+        deactivateAll();
+      }
+    }
+  }
+
+  function activateMechanism(n) {
+    deactivateAll();
+    const overlay = document.getElementById(`overlay-m${n}`);
+    if (overlay) overlay.classList.add('active');
+  }
+
+  function deactivateAll() {
+    document.querySelectorAll('.mechanism-overlay').forEach(o => o.classList.remove('active'));
+  }
+
+  // Allow keyboard input for room code
+  document.getElementById('roomInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') connectToRoom();
+  });
+</script>
+</body>
+</html>

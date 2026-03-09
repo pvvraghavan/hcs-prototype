@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FC Controller</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow: hidden;
+  }
+
+  .grid-bg {
+    position: fixed;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(245, 158, 11, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(245, 158, 11, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .badge {
+    display: inline-block;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: #F59E0B;
+    font-size: 10px;
+    letter-spacing: 3px;
+    padding: 6px 16px;
+    border-radius: 2px;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.5px;
+  }
+
+  h1 span { color: #F59E0B; }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 11px;
+    color: #555;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #555;
+    transition: all 0.3s;
+  }
+
+  .status-dot.connected { background: #34C759; box-shadow: 0 0 8px #34C759; }
+  .status-dot.waiting { 
+    background: #F59E0B; 
+    animation: pulse-dot 1s infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .room-section {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 360px;
+    margin-bottom: 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .room-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #555;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .room-input-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  input {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    letter-spacing: 4px;
+    outline: none;
+    transition: border-color 0.2s;
+    text-transform: uppercase;
+  }
+
+  input:focus { border-color: #F59E0B; }
+  input::placeholder { color: #333; letter-spacing: 2px; font-size: 13px; }
+
+  .btn-connect {
+    background: #F59E0B;
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+
+  .btn-connect:hover { background: #FBBF24; transform: translateY(-1px); }
+  .btn-connect:disabled { background: #333; color: #666; cursor: not-allowed; transform: none; }
+
+  .controls {
+    width: 100%;
+    max-width: 360px;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .trigger-btn {
+    width: 100%;
+    padding: 28px;
+    border: none;
+    border-radius: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+    text-transform: uppercase;
+  }
+
+  .trigger-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.1);
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .trigger-btn:active::after { opacity: 1; }
+  .trigger-btn:active { transform: scale(0.97); }
+
+  .btn-activate {
+    background: linear-gradient(135deg, #DC2626, #EF4444);
+    color: #fff;
+    box-shadow: 0 8px 32px rgba(220, 38, 38, 0.4);
+  }
+
+  .btn-activate:hover {
+    box-shadow: 0 12px 40px rgba(220, 38, 38, 0.6);
+    transform: translateY(-2px);
+  }
+
+  .btn-deactivate {
+    background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+    color: #888;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: none;
+  }
+
+  .btn-deactivate.ready {
+    background: linear-gradient(135deg, #059669, #10B981);
+    color: #fff;
+    border: none;
+    box-shadow: 0 8px 32px rgba(16, 185, 129, 0.4);
+  }
+
+  .btn-deactivate.ready:hover {
+    box-shadow: 0 12px 40px rgba(16, 185, 129, 0.6);
+    transform: translateY(-2px);
+  }
+
+  .mechanism-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .mech-btn {
+    padding: 12px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    color: #666;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .mech-btn:hover { border-color: rgba(255,255,255,0.2); color: #999; }
+
+  .mech-btn.active-m1 { 
+    background: rgba(245, 158, 11, 0.15); 
+    border-color: #F59E0B; 
+    color: #F59E0B; 
+  }
+  .mech-btn.active-m2 { 
+    background: rgba(220, 38, 38, 0.15); 
+    border-color: #DC2626; 
+    color: #DC2626; 
+  }
+  .mech-btn.active-m3 { 
+    background: rgba(0, 122, 255, 0.15); 
+    border-color: #007AFF; 
+    color: #007AFF; 
+  }
+
+  .log {
+    width: 100%;
+    max-width: 360px;
+    position: relative;
+    z-index: 1;
+    margin-top: 16px;
+  }
+
+  .log-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #444;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .log-entries {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 12px;
+    max-height: 120px;
+    overflow-y: auto;
+    font-size: 11px;
+    color: #555;
+    line-height: 1.8;
+  }
+
+  .log-entry { color: #555; }
+  .log-entry.trigger { color: #DC2626; }
+  .log-entry.deactivate { color: #34C759; }
+  .log-entry.connect { color: #F59E0B; }
+  .log-entry.system { color: #007AFF; }
+
+  .disabled-overlay {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  .timer {
+    text-align: center;
+    font-size: 11px;
+    color: #444;
+    margin-top: 8px;
+  }
+
+  .timer span { color: #DC2626; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<div class="header">
+  <div class="badge">Researcher Only</div>
+  <h1>FC <span>Controller</span></h1>
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Not connected</span>
+  </div>
+</div>
+
+<div class="room-section">
+  <div class="room-label">Session Room Code</div>
+  <div class="room-input-row">
+    <input type="text" id="roomInput" placeholder="e.g. HCS01" maxlength="6" />
+    <button class="btn-connect" id="connectBtn" onclick="connectToRoom()">Join</button>
+  </div>
+</div>
+
+<div class="controls disabled-overlay" id="controls">
+  <div class="room-label" style="margin-bottom:4px">Active Mechanism</div>
+  <div class="mechanism-selector">
+    <button class="mech-btn" onclick="setMechanism(1)" id="m1btn">⚠️ Alert</button>
+    <button class="mech-btn" onclick="setMechanism(2)" id="m2btn">🔴 Border</button>
+    <button class="mech-btn" onclick="setMechanism(3)" id="m3btn">📷 Camera</button>
+  </div>
+
+  <button class="trigger-btn btn-activate" onclick="sendTrigger('activate')">
+    ▶ ACTIVATE MECHANISM
+  </button>
+
+  <button class="trigger-btn btn-deactivate" id="deactivateBtn" onclick="sendTrigger('deactivate')">
+    ■ DEACTIVATE
+  </button>
+</div>
+
+<div class="timer" id="timer" style="display:none">
+  Active for <span id="timerCount">0</span>s / 30s
+</div>
+
+<div class="log">
+  <div class="log-label">Session Log</div>
+  <div class="log-entries" id="logEntries">
+    <div class="log-entry system">— System ready. Enter room code to begin.</div>
+  </div>
+</div>
+
+<script>
+  // Uses a free public WebSocket relay service
+  const WS_URL = 'wss://ws.deriveddata.com/';
+  let ws = null;
+  let roomCode = '';
+  let currentMechanism = 1;
+  let isActive = false;
+  let timerInterval = null;
+  let timerCount = 0;
+
+  function addLog(msg, type='') {
+    const log = document.getElementById('logEntries');
+    const time = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+    entry.textContent = `[${time}] ${msg}`;
+    log.appendChild(entry);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function setMechanism(n) {
+    currentMechanism = n;
+    document.querySelectorAll('.mech-btn').forEach(b => b.className = 'mech-btn');
+    document.getElementById(`m${n}btn`).classList.add(`active-m${n}`);
+    const names = {1:'Alert Icon', 2:'Flashing Border', 3:'Camera Preview'};
+    addLog(`Mechanism set to: ${names[n]}`, 'system');
+    if (ws) sendMessage({type:'mechanism', value:n});
+  }
+
+  function connectToRoom() {
+    roomCode = document.getElementById('roomInput').value.trim().toUpperCase();
+    if (!roomCode) { alert('Please enter a room code'); return; }
+
+    document.getElementById('connectBtn').disabled = true;
+    document.getElementById('statusText').textContent = 'Connecting...';
+    document.getElementById('statusDot').className = 'status-dot waiting';
+
+    // Use a simple localStorage-based sync for same-device testing
+    // or BroadcastChannel for cross-tab, with fallback to polling
+    setupConnection();
+  }
+
+  function setupConnection() {
+    // Use BroadcastChannel API for real-time sync between tabs/windows
+    // This works when both pages are open on the same device or network via shared URL
+    try {
+      window.channel = new BroadcastChannel(`hcs_${roomCode}`);
+      window.channel.onmessage = (e) => handleMessage(e.data);
+      onConnected();
+    } catch(e) {
+      // Fallback to localStorage polling
+      setupLocalStorageFallback();
+    }
+  }
+
+  function setupLocalStorageFallback() {
+    // Poll localStorage every 200ms
+    window.pollInterval = setInterval(() => {
+      const msg = localStorage.getItem(`hcs_${roomCode}_incoming`);
+      if (msg) {
+        localStorage.removeItem(`hcs_${roomCode}_incoming`);
+        handleMessage(JSON.parse(msg));
+      }
+    }, 200);
+    onConnected();
+  }
+
+  function onConnected() {
+    document.getElementById('statusDot').className = 'status-dot connected';
+    document.getElementById('statusText').textContent = `Room: ${roomCode} — Connected`;
+    document.getElementById('controls').classList.remove('disabled-overlay');
+    document.getElementById('roomInput').disabled = true;
+    document.getElementById('connectBtn').disabled = true;
+    addLog(`Joined room: ${roomCode}`, 'connect');
+    addLog('Participant device can now connect with same code', 'system');
+    setMechanism(1);
+  }
+
+  function sendMessage(data) {
+    const msg = {...data, room: roomCode, from: 'fc'};
+    // BroadcastChannel
+    if (window.channel) window.channel.postMessage(msg);
+    // localStorage fallback
+    localStorage.setItem(`hcs_${roomCode}_msg`, JSON.stringify(msg));
+    localStorage.setItem(`hcs_${roomCode}_ts`, Date.now());
+  }
+
+  function handleMessage(data) {
+    if (data.from === 'participant') {
+      addLog(`Participant connected to room`, 'connect');
+      document.getElementById('statusText').textContent = `Room: ${roomCode} — Participant joined ✓`;
+    }
+  }
+
+  function sendTrigger(action) {
+    if (!roomCode) return;
+
+    const names = {1:'Alert Icon', 2:'Flashing Border', 3:'Camera Preview'};
+    sendMessage({type: 'trigger', action: action, mechanism: currentMechanism});
+
+    if (action === 'activate') {
+      isActive = true;
+      document.getElementById('deactivateBtn').classList.add('ready');
+      addLog(`ACTIVATED — ${names[currentMechanism]}`, 'trigger');
+      startTimer();
+    } else {
+      isActive = false;
+      document.getElementById('deactivateBtn').classList.remove('ready');
+      addLog(`DEACTIVATED — ${names[currentMechanism]}`, 'deactivate');
+      stopTimer();
+    }
+  }
+
+  function startTimer() {
+    timerCount = 0;
+    document.getElementById('timer').style.display = 'block';
+    timerInterval = setInterval(() => {
+      timerCount++;
+      document.getElementById('timerCount').textContent = timerCount;
+      if (timerCount >= 30) {
+        document.getElementById('timerCount').style.color = '#34C759';
+      }
+    }, 1000);
+  }
+
+  function stopTimer() {
+    clearInterval(timerInterval);
+    document.getElementById('timer').style.display = 'none';
+    document.getElementById('timerCount').style.color = '#DC2626';
+  }
+
+  // Auto-select mechanism 1 visually
+  document.getElementById('m1btn').classList.add('active-m1');
+</script>
+</body>
+</html>
